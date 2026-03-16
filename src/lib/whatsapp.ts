@@ -18,6 +18,20 @@ export async function sendWhatsAppMessage(tenantId: string, to: string, message:
   throw new Error("No WA provider configured for tenant");
 }
 
+export async function setWhatsAppPresence(tenantId: string, to: string, presence: "typing" | "paused") {
+  const tenant = await db.query.tenants.findFirst({
+    where: eq(tenants.id, tenantId),
+  });
+
+  if (!tenant) return;
+
+  if (tenant.waProvider === "fonnte" && presence === "typing") {
+    return setFonntePresence(tenant.waApiKey || "", to);
+  } else if (tenant.waProvider === "waha") {
+    return setWahaPresence(tenant.waSessionId || "default", to, presence);
+  }
+}
+
 async function sendFonnteMessage(apiKey: string, to: string, message: string) {
   const res = await fetch("https://api.fonnte.com/send", {
     method: "POST",
@@ -63,4 +77,38 @@ async function sendWahaMessage(session: string, to: string, message: string) {
   }
 
   return res.json();
+}
+
+async function setFonntePresence(apiKey: string, to: string) {
+  try {
+    await fetch("https://api.fonnte.com/typing", {
+      method: "POST",
+      headers: { Authorization: apiKey },
+      body: new URLSearchParams({ target: to }),
+    });
+  } catch (error) {
+    console.error("Fonnte presence error:", error);
+  }
+}
+
+async function setWahaPresence(session: string, to: string, presence: "typing" | "paused") {
+  try {
+    const baseUrl = process.env.WAHA_URL || "http://localhost:3000";
+    const wahaSecret = process.env.WAHA_SECRET;
+
+    await fetch(`${baseUrl}/api/presence`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(wahaSecret ? { "X-Api-Key": wahaSecret } : {}),
+      },
+      body: JSON.stringify({
+        session,
+        chatId: `${to}@c.us`,
+        presence,
+      }),
+    });
+  } catch (error) {
+    console.error("WAHA presence error:", error);
+  }
 }

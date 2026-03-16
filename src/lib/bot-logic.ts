@@ -9,6 +9,11 @@ export async function checkBotAvailability(tenantId: string) {
 
   if (!settings) return { available: true, settings: null };
 
+  // Cek apakah AI diaktifkan
+  if (settings.aiEnabled === false) {
+    return { available: false, settings };
+  }
+
   const now = new Date();
   const currentTime = now.toTimeString().split(" ")[0]; // HH:mm:ss
 

@@ -14,13 +14,14 @@ export default function AISettingsPage() {
   const [model, setModel] = useState("gpt-4o");
   const [tone, setTone] = useState("semi-formal");
   const [aktif, setAktif] = useState(true);
-  
   const [models, setModels] = useState<Model[]>([]);
   const [testMessage, setTestMessage] = useState("");
   const [testResponse, setTestResponse] = useState("");
+  const [knowledgeBase, setKnowledgeBase] = useState<{ profile: string; products: string; faqs: string; promos: string; payments: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [loadingKB, setLoadingKB] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -47,6 +48,8 @@ export default function AISettingsPage() {
         const modelsData = await modelsRes.json();
         setModels(modelsData.data || []);
       }
+      
+      fetchKB();
     } catch (error) {
       console.error("Error fetching AI settings:", error);
       toast.error("Gagal memuat pengaturan AI");
@@ -82,15 +85,43 @@ export default function AISettingsPage() {
     }
   };
 
+  const fetchKB = async () => {
+    setLoadingKB(true);
+    try {
+      const res = await fetch("/api/ai/knowledge-base");
+      if (res.ok) {
+        const data = await res.json();
+        setKnowledgeBase(data);
+      }
+    } catch (error) {
+      console.error("Error fetching KB:", error);
+    } finally {
+      setLoadingKB(false);
+    }
+  };
+
   const handleTest = async () => {
     if (!testMessage) return;
     setTesting(true);
-    setTestResponse("");
     try {
-      // Logic for real AI preview would go here
-      // For now simulation
-      await new Promise(r => setTimeout(r, 1500));
-      setTestResponse(`[Simulasi via ${model}]: Halo! Saya ${namaAgent}. Bagaimana saya bisa membantu Anda hari ini?`);
+      const res = await fetch("/api/ai/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: testMessage,
+          systemPrompt,
+          namaAgent,
+          model,
+          tone,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setTestResponse(data.reply);
+      } else {
+        toast.error("AI gagal merespon");
+      }
     } catch (error) {
       toast.error("Gagal melakukan pengetesan AI");
     } finally {
@@ -223,6 +254,49 @@ export default function AISettingsPage() {
               >
                 {testing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
               </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="glass-card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-[#F1F5F9]">Knowledge Base Preview</h2>
+          <button onClick={fetchKB} disabled={loadingKB} className="text-xs text-[#3B82F6] hover:underline">
+            {loadingKB ? "Refreshing..." : "Refresh Data"}
+          </button>
+        </div>
+        <p className="text-xs text-[#94A3B8] mb-6">Berikut adalah data mentah yang akan disuntikkan ke dalam AI setiap kali bot merespon pesan pelanggan.</p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="space-y-2">
+            <span className="text-[10px] font-bold text-[#3B82F6] uppercase">Profil Bisnis</span>
+            <div className="p-3 bg-[#0A0F1E] border border-[rgba(255,255,255,0.05)] rounded-lg text-[11px] text-[#CBD5E1] whitespace-pre-wrap h-40 overflow-y-auto">
+              {knowledgeBase?.profile || "-"}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <span className="text-[10px] font-bold text-[#10B981] uppercase">Produk & Layanan</span>
+            <div className="p-3 bg-[#0A0F1E] border border-[rgba(255,255,255,0.05)] rounded-lg text-[11px] text-[#CBD5E1] whitespace-pre-wrap h-40 overflow-y-auto">
+              {knowledgeBase?.products || "-"}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <span className="text-[10px] font-bold text-[#F59E0B] uppercase">Promo Aktif</span>
+            <div className="p-3 bg-[#0A0F1E] border border-[rgba(255,255,255,0.05)] rounded-lg text-[11px] text-[#CBD5E1] whitespace-pre-wrap h-40 overflow-y-auto">
+              {knowledgeBase?.promos || "-"}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <span className="text-[10px] font-bold text-[#94A3B8] uppercase">FAQ</span>
+            <div className="p-3 bg-[#0A0F1E] border border-[rgba(255,255,255,0.05)] rounded-lg text-[11px] text-[#CBD5E1] whitespace-pre-wrap h-40 overflow-y-auto">
+              {knowledgeBase?.faqs || "-"}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <span className="text-[10px] font-bold text-[#8B5CF6] uppercase">Metode Pembayaran</span>
+            <div className="p-3 bg-[#0A0F1E] border border-[rgba(255,255,255,0.05)] rounded-lg text-[11px] text-[#CBD5E1] whitespace-pre-wrap h-40 overflow-y-auto">
+              {knowledgeBase?.payments || "-"}
             </div>
           </div>
         </div>
