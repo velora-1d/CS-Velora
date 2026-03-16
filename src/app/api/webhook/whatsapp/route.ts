@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { tenants, chatLogs } from "@/db/schema";
+import { tenants, chatLogs, waSessions } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
 import { sendWhatsAppMessage, setWhatsAppPresence } from "@/lib/whatsapp";
 import { getAiCompletion } from "@/lib/ai";
@@ -81,13 +81,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: "rate_limited" }, { status: 429 });
     }
 
-    // 3. Find Tenant
-    const tenant = await db.query.tenants.findFirst({
+    // 3. Find Tenant — cari dari waSessions (Multi-WA) atau fallback ke kolom lama
+    let tenant = await db.query.tenants.findFirst({
       where: or(
         eq(tenants.waSessionId, messageData.identifier),
         eq(tenants.waNumber, messageData.identifier)
       ),
     });
+
+    if (!tenant) {
+      // Cari via tabel waSessions (Multi-WA)
+      const waSession = await db.query.waSessions.findFirst({
+        where: or(
+          eq(waSessions.sessionId, messageData.identifier),
+          eq(waSessions.waNumber, messageData.identifier)
+        ),
+        columns: { tenantId: true },
+      });
+
+      if (waSession) {
+        tenant = await db.query.tenants.findFirst({
+          where: eq(tenants.id, waSession.tenantId),
+        });
+      }
+    }
 
     if (!tenant) {
       console.error("Tenant not found for identifier:", messageData.identifier);

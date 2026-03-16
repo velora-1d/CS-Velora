@@ -27,7 +27,7 @@ import { useState } from "react";
 
 const menuItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/whatsapp", icon: MessageCircle, label: "WhatsApp" },
+  { href: "/dashboard/whatsapp", icon: MessageCircle, label: "WhatsApp" },
   { href: "/products", icon: Package, label: "Produk" },
   { href: "/promos", icon: Tag, label: "Promo" },
   { href: "/orders", icon: ShoppingCart, label: "Orders" },
