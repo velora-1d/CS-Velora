@@ -21,6 +21,9 @@ export const slotStatusEnum = pgEnum("slot_status", ["tersedia", "terbooking", "
 export const requestStatusEnum = pgEnum("request_status", ["pending", "approved", "rejected"]);
 export const aiToneEnum = pgEnum("ai_tone", ["formal", "semi-formal", "santai"]);
 export const bahasaEnum = pgEnum("bahasa", ["id", "en"]);
+export const tenantStatusEnum = pgEnum("tenant_status", ["trial", "active", "suspended", "expired"]);
+export const subscriptionStatusEnum = pgEnum("subscription_status", ["pending", "active", "expired", "rejected"]);
+export const announcementPriorityEnum = pgEnum("announcement_priority", ["low", "medium", "high"]);
 
 // Tenants table
 export const tenants = pgTable("tenants", {
@@ -35,17 +38,33 @@ export const tenants = pgTable("tenants", {
   waSessionId: varchar("wa_session_id", { length: 255 }),
   waNumber: varchar("wa_number", { length: 30 }),
   paket: paketEnum("paket").notNull().default("basic"),
+  status: tenantStatusEnum("status").notNull().default("trial"),
+  trialEndsAt: timestamp("trial_ends_at"),
+  suspendedAt: timestamp("suspended_at"),
+  suspendReason: text("suspend_reason"),
+  maxWaAccounts: integer("max_wa_accounts").notNull().default(1),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// Users table (admins)
-export const users = pgTable("users", {
+// WA Sessions table (Multi-WA support)
+export const waSessions = pgTable("wa_sessions", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+  sessionId: varchar("session_id", { length: 255 }).notNull(),
+  waNumber: varchar("wa_number", { length: 30 }).notNull(),
+  label: varchar("label", { length: 100 }),
+  status: varchar("status", { length: 50 }).notNull().default("disconnected"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Users table (Admins & Owners)
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id), // Nullable for owner
   email: varchar("email", { length: 255 }).notNull().unique(),
   password: varchar("password", { length: 255 }).notNull(),
   nama: varchar("nama", { length: 255 }).notNull(),
-  role: varchar("role", { length: 50 }).notNull().default("admin"), // super_admin, admin
+  role: varchar("role", { length: 50 }).notNull().default("tenant"), // owner, tenant
   bahasa: bahasaEnum("bahasa").default("id"),
   aktif: boolean("aktif").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -186,9 +205,55 @@ export const chatLogs = pgTable("chat_logs", {
   timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
 
+// Subscriptions table (Billing)
+export const subscriptions = pgTable("subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+  paket: paketEnum("paket").notNull(),
+  amount: integer("amount").notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  status: subscriptionStatusEnum("status").notNull().default("pending"),
+  buktiTransfer: varchar("bukti_transfer", { length: 500 }),
+  confirmedAt: timestamp("confirmed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Announcements table
+export const announcements = pgTable("announcements", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  judul: varchar("judul", { length: 255 }).notNull(),
+  isi: text("isi").notNull(),
+  prioritas: announcementPriorityEnum("prioritas").notNull().default("medium"),
+  targetAll: boolean("target_all").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Announcement Targets table (if targetAll is false or for tracking read status)
+export const announcementTargets = pgTable("announcement_targets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  announcementId: uuid("announcement_id").references(() => announcements.id).notNull(),
+  tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+  readAt: timestamp("read_at"),
+});
+
+// Owner Payment Info table (For tenants to transfer to)
+export const ownerPaymentInfo = pgTable("owner_payment_info", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tipe: paymentTypeEnum("tipe").notNull(),
+  namaBank: varchar("nama_bank", { length: 100 }),
+  nomorRekening: varchar("nomor_rekening", { length: 50 }),
+  namaPemilik: varchar("nama_pemilik", { length: 255 }),
+  gambarQris: varchar("gambar_qris", { length: 500 }),
+  aktif: boolean("aktif").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Type exports
 export type Tenant = typeof tenants.$inferSelect;
 export type NewTenant = typeof tenants.$inferInsert;
+export type WaSession = typeof waSessions.$inferSelect;
+export type NewWaSession = typeof waSessions.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Product = typeof products.$inferSelect;
@@ -211,3 +276,11 @@ export type AiSetting = typeof aiSettings.$inferSelect;
 export type NewAiSetting = typeof aiSettings.$inferInsert;
 export type ChatLog = typeof chatLogs.$inferSelect;
 export type NewChatLog = typeof chatLogs.$inferInsert;
+export type Subscription = typeof subscriptions.$inferSelect;
+export type NewSubscription = typeof subscriptions.$inferInsert;
+export type Announcement = typeof announcements.$inferSelect;
+export type NewAnnouncement = typeof announcements.$inferInsert;
+export type AnnouncementTarget = typeof announcementTargets.$inferSelect;
+export type NewAnnouncementTarget = typeof announcementTargets.$inferInsert;
+export type OwnerPaymentInfo = typeof ownerPaymentInfo.$inferSelect;
+export type NewOwnerPaymentInfo = typeof ownerPaymentInfo.$inferInsert;

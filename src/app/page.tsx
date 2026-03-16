@@ -5,7 +5,11 @@ export default async function HomePage() {
   const session = await auth();
   
   if (session) {
-    redirect("/dashboard");
+    if (session.user?.role === "owner") {
+      redirect("/owner/dashboard");
+    } else {
+      redirect("/dashboard");
+    }
   } else {
     redirect("/login");
   }
