@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Loader2, Lock, Mail, Eye, EyeOff, CheckCircle2, Bot, BarChart3, ShieldCheck, Zap } from "lucide-react";
+import { Loader2, Lock, Mail, Eye, EyeOff, CheckCircle2, Bot, BarChart3, ShieldCheck, Zap, CreditCard, Tag, HelpCircle, Calendar } from "lucide-react";
 import Image from "next/image";
 
 export default function LoginPage() {
@@ -59,24 +59,44 @@ export default function LoginPage() {
 
   const features = [
     {
-      icon: <Bot className="w-6 h-6 text-[#56D6FF]" />,
-      title: "AI Assistant Terintegrasi",
-      desc: "Chatbot kelas dunia yang melayani pelanggan Anda 24/7 secara otomatis."
+      icon: <Bot className="w-5 h-5 text-[#56D6FF]" />,
+      title: "AI Assistant",
+      desc: "Chatbot otomatis 24/7 melayani pelanggan Anda."
     },
     {
-      icon: <BarChart3 className="w-6 h-6 text-[#67A7FF]" />,
-      title: "Laporan & Analitik Brutal",
-      desc: "Pantau pertumbuhan bisnis secara real-time dengan grafik dan KPI premium."
+      icon: <BarChart3 className="w-5 h-5 text-[#67A7FF]" />,
+      title: "Analitik Brutal",
+      desc: "Grafik & KPI real-time untuk pantau bisnis."
     },
     {
-      icon: <ShieldCheck className="w-6 h-6 text-[#9D8CFF]" />,
-      title: "Keamanan Kelas Tinggi",
-      desc: "Perlindungan data enkripsi end-to-end untuk seluruh operasi bisnis Anda."
+      icon: <CreditCard className="w-5 h-5 text-[#4ADE80]" />,
+      title: "Pembayaran",
+      desc: "Dukungan gateway & konfirmasi manual."
     },
     {
-      icon: <Zap className="w-6 h-6 text-[#4ADE80]" />,
-      title: "Eksekusi Kilat",
-      desc: "Antarmuka yang dioptimasi untuk kecepatan tinggi dan alur kerja yang efisien."
+      icon: <ShieldCheck className="w-5 h-5 text-[#9D8CFF]" />,
+      title: "Keamanan Global",
+      desc: "Proteksi data dengan enkripsi end-to-end."
+    },
+    {
+      icon: <Tag className="w-5 h-5 text-[#FBBF24]" />,
+      title: "Promo & Voucher",
+      desc: "Tingkatkan penjualan dengan diskon dinamis."
+    },
+    {
+      icon: <HelpCircle className="w-5 h-5 text-[#A78BFA]" />,
+      title: "FAQ Cerdas",
+      desc: "Pusat bantuan mandiri untuk efisiensi CS."
+    },
+    {
+      icon: <Calendar className="w-5 h-5 text-[#F472B6]" />,
+      title: "Jadwal Konsultasi",
+      desc: "Atur janji temu secara profesional."
+    },
+    {
+      icon: <Zap className="w-5 h-5 text-[#60A5FA]" />,
+      title: "Performa Kilat",
+      desc: "Antarmuka responsif & eksekusi cepat."
     }
   ];
 
@@ -102,15 +122,15 @@ export default function LoginPage() {
               Pusat Kendali <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#56D6FF] via-[#67A7FF] to-[#9D8CFF]">Bisnis Digital</span> Masa Depan.
             </h2>
             
-            <div className="space-y-8">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-10">
               {features.map((f, i) => (
-                <div key={i} className="flex gap-5 group">
-                  <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:border-[#56D6FF]/30 group-hover:bg-[#56D6FF]/5">
+                <div key={i} className="flex flex-col gap-4 group">
+                  <div className="flex-shrink-0 w-11 h-11 rounded-2xl bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:border-[#56D6FF]/30 group-hover:bg-[#56D6FF]/5">
                     {f.icon}
                   </div>
                   <div>
-                    <h3 className="text-[#F1F5F9] font-semibold mb-1">{f.title}</h3>
-                    <p className="text-[#94A3B8] text-sm leading-relaxed">{f.desc}</p>
+                    <h3 className="text-[#F1F5F9] font-semibold text-sm mb-1">{f.title}</h3>
+                    <p className="text-[#94A3B8] text-[12px] leading-relaxed line-clamp-2">{f.desc}</p>
                   </div>
                 </div>
               ))}
