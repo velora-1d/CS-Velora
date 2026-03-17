@@ -41,6 +41,7 @@ export default async function BillingPage() {
     <TenantBillingPage
       tenant={tenantData || { status: 'active', paket: 'pro', maxWaAccounts: 999 }}
       paymentMethods={paymentMethods}
+      isOwner={session.user.role === "owner"}
     />
   );
 }

@@ -7,55 +7,45 @@ import { CreditCard, CheckCircle, Clock, Zap, AlertTriangle, Upload, Loader2, Ar
 
 export default function TenantBillingPage({ 
   tenant, 
-  paymentMethods 
+  paymentMethods,
+  isOwner = false
 }: { 
   tenant: any, 
-  paymentMethods: any[] 
+  paymentMethods: any[],
+  isOwner?: boolean
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string>("basic");
-  const [file, setFile] = useState<File | null>(null);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) {
-      setError("Mohon upload bukti transfer pembayaran");
-      return;
-    }
-    
     setError("");
     setIsSubmitting(true);
 
     try {
-      // Create FormData for file upload
-      const formData = new FormData();
-      formData.append("paket", selectedPlan);
-      formData.append("buktiPembayaran", file);
-
-      const res = await fetch("/api/billing/upgrade", {
+      const res = await fetch("/api/billing/checkout", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paket: selectedPlan }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Gagal mengajukan perpanjangan");
+        throw new Error(data.error || "Gagal membuat tagihan");
       }
 
-      setSuccess(true);
-      setFile(null);
+      if (data.checkoutUrl) {
+         window.location.href = data.checkoutUrl; // Redirect ke Pakasir Gateway
+      } else {
+         throw new Error("Checkout URL tidak ditemukan");
+         
+      }
+
     } catch (err: any) {
       setError(err.message);
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -92,8 +82,8 @@ export default function TenantBillingPage({
             <div className="text-right">
               <p className="text-[#94A3B8] text-sm mb-1">Paket Aktif</p>
               <span className="capitalize text-lg font-bold text-[#F1F5F9] inline-flex items-center gap-2">
-                <Zap className={`w-5 h-5 ${tenant.paket === 'pro' ? 'text-yellow-500' : 'text-[#3B82F6]'}`} />
-                {tenant.paket} Plan
+                <Zap className={`w-5 h-5 ${tenant.paket === 'pro' || isOwner ? 'text-yellow-500' : 'text-[#3B82F6]'}`} />
+                {isOwner ? "Owner (Gratis Selamanya)" : `${tenant.paket} Plan`}
               </span>
             </div>
           </div>
@@ -112,13 +102,27 @@ export default function TenantBillingPage({
               <li className="flex justify-between pb-1">
                 <span>Masa Aktif Berakhir:</span>
                 <span className="text-yellow-500 font-medium">
-                  {tenant.status === 'trial' && tenant.trialEndsAt 
+                  {isOwner ? "Selamanya" : (tenant.status === 'trial' && tenant.trialEndsAt 
                     ? format(new Date(tenant.trialEndsAt), "dd MMMM yyyy (HH:mm)", { locale: id }) 
-                    : "-"}
+                    : "-")}
                 </span>
               </li>
             </ul>
           </div>
+
+          {isOwner ? (
+            <div className="bg-yellow-500/10 border border-yellow-500/30 p-5 rounded-lg mt-6">
+              <div className="flex items-start gap-3">
+                <Zap className="w-6 h-6 text-yellow-500 shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="font-medium text-yellow-500 mb-1">Hak Istimewa Owner</h3>
+                  <p className="text-sm text-yellow-500/80">
+                    Sebagai Owner, Anda mendapatkan akses penuh ke seluruh fitur platform CS Velora secara gratis selamanya, tanpa perlu melakukan perpanjangan atau upgrade paket.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
           <div className="bg-[#0A0F1E] p-5 rounded-lg border border-[rgba(255,255,255,0.05)] mt-6">
             <h3 className="font-medium text-[#F1F5F9] mb-4">Pengajuan Perpanjangan / Upgrade</h3>
             
@@ -158,32 +162,34 @@ export default function TenantBillingPage({
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm text-[#94A3B8] mb-2">Upload Bukti Transfer</label>
-                  <input
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={handleFileChange}
-                    className="block w-full text-sm text-[#94A3B8]
-                      file:mr-4 file:py-2 file:px-4
-                      file:rounded-full file:border-0
-                      file:text-sm file:font-semibold
-                      file:bg-[#3B82F6]/10 file:text-[#3B82F6]
-                      hover:file:bg-[#3B82F6]/20 cursor-pointer"
-                  />
-                  {file && <p className="text-xs text-green-500 mt-2 flex items-center gap-1"><CheckCircle className="w-3 h-3"/> File terpilih: {file.name}</p>}
-                </div>
 
-                <button 
-                  type="submit"
-                  disabled={isSubmitting || !file}
-                  className="w-full py-3 bg-[#3B82F6] hover:bg-[#2563EB] text-white font-medium rounded-lg transition-colors flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
-                >
-                  {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin"/> Memproses...</> : <><Upload className="w-4 h-4"/> Kirim Bukti Pembayaran</>}
-                </button>
+                <div className="pt-4 border-t border-[rgba(255,255,255,0.05)]">
+                  <div className="flex justify-between font-medium mb-4">
+                    <span className="text-[#94A3B8]">Total Tagihan:</span>
+                    <span className="text-[#F1F5F9] text-lg">
+                      {selectedPlan === 'basic' ? 'Rp 35.000' : 'Rp 99.000'} / bulan
+                    </span>
+                  </div>
+                  
+                  <button 
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white py-3 px-4 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                  >
+                    {isSubmitting ? (
+                      <><Loader2 className="w-5 h-5 animate-spin" /> Memproses...</>
+                    ) : (
+                      <><CreditCard className="w-5 h-5"/> Bayar Sekarang & Lengkapi Pembayaran <ArrowRight className="w-4 h-4" /></>
+                    )}
+                  </button>
+                  <p className="text-xs text-center text-[#94A3B8] mt-3">
+                    Pembayaran diproses aman melalui <strong>Pakasir Payment Gateway</strong>.
+                  </p>
+                </div>
               </form>
             )}
           </div>
+          )}
         </div>
 
         <div className="glass-card p-6">

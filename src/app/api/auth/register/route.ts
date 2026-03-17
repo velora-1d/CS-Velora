@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { tenants, users } from "@/db/schema";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
+import { sendTelegramNotification } from "@/lib/telegram";
 
 export async function POST(req: Request) {
   try {
@@ -63,6 +64,11 @@ export async function POST(req: Request) {
       role: "tenant", // Default role
       aktif: true,
     });
+
+    // 5. Kirim Notifikasi Telegram ke Owner
+    await sendTelegramNotification(
+      `🚀 <b>Tenant Baru Mendaftar!</b>\n\n<b>Toko:</b> ${namaToko}\n<b>Pemilik:</b> ${namaPemilik}\n<b>Email:</b> ${email}`
+    );
 
     return NextResponse.json(
       { success: true, message: "Pendaftaran berhasil" },

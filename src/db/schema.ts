@@ -37,6 +37,8 @@ export const tenants = pgTable("tenants", {
   waApiKey: varchar("wa_api_key", { length: 500 }),
   waSessionId: varchar("wa_session_id", { length: 255 }),
   waNumber: varchar("wa_number", { length: 30 }),
+  pakasirProjectSlug: varchar("pakasir_project_slug", { length: 255 }),
+  pakasirApiKey: varchar("pakasir_api_key", { length: 255 }),
   paket: paketEnum("paket").notNull().default("basic"),
   status: tenantStatusEnum("status").notNull().default("trial"),
   trialEndsAt: timestamp("trial_ends_at"),

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -22,6 +22,7 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  ShieldAlert,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -33,6 +34,7 @@ const menuItems = [
   { href: "/orders", icon: ShoppingCart, label: "Orders" },
   { href: "/consultations", icon: Calendar, label: "Jadwal & Konsultasi" },
   { href: "/payments", icon: CreditCard, label: "Pembayaran" },
+  { href: "/billing", icon: CreditCard, label: "Langganan & Billing" },
   { href: "/faqs", icon: HelpCircle, label: "FAQ" },
   { href: "/ai-settings", icon: Bot, label: "AI Settings" },
   { href: "/bot-settings", icon: Settings, label: "Bot Settings" },
@@ -44,6 +46,7 @@ const menuItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -137,7 +140,21 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      <div className="p-2 border-t border-[rgba(255,255,255,0.08)]">
+      <div className="p-2 border-t border-[rgba(255,255,255,0.08)] flex flex-col gap-1">
+        {(session?.user as any)?.role === 'owner' && (
+          <Link
+            href="/owner/dashboard"
+            className={cn(
+              "flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-[#94A3B8] transition-colors hover:bg-[rgba(255,255,255,0.05)] hover:text-[#3B82F6]",
+              collapsed && "justify-center"
+            )}
+          >
+            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-[rgba(255,255,255,0.04)] text-yellow-500">
+              <ShieldAlert className="h-5 w-5" />
+            </span>
+            {!collapsed && <span className="text-sm">Owner Panel</span>}
+          </Link>
+        )}
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
           className={cn(

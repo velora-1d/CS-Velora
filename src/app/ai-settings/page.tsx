@@ -1,12 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Send, ToggleLeft, ToggleRight, Loader2, Save } from "lucide-react";
+import { Send, ToggleLeft, ToggleRight, Loader2, Save, Cpu, Layers, DollarSign, ChevronDown, Check, X } from "lucide-react";
 import { toast } from "sonner";
-
-interface Model {
-  id: string;
-  name?: string;
-}
+import { AIModel, AI_MODELS } from "@/lib/ai-models";
 
 export default function AISettingsPage() {
   const [systemPrompt, setSystemPrompt] = useState("");
@@ -14,7 +10,7 @@ export default function AISettingsPage() {
   const [model, setModel] = useState("gpt-4o");
   const [tone, setTone] = useState("semi-formal");
   const [aktif, setAktif] = useState(true);
-  const [models, setModels] = useState<Model[]>([]);
+  const [models, setModels] = useState<AIModel[]>([]);
   const [testMessage, setTestMessage] = useState("");
   const [testResponse, setTestResponse] = useState("");
   const [knowledgeBase, setKnowledgeBase] = useState<{ profile: string; products: string; faqs: string; promos: string; payments: string } | null>(null);
@@ -22,6 +18,10 @@ export default function AISettingsPage() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [loadingKB, setLoadingKB] = useState(false);
+  
+  // Modal AI Model Picker state
+  const [isModelModalOpen, setIsModelModalOpen] = useState(false);
+  const [searchModel, setSearchModel] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -45,8 +45,10 @@ export default function AISettingsPage() {
       }
 
       if (modelsRes.ok) {
-        const modelsData = await modelsRes.json();
-        setModels(modelsData.data || []);
+        // Kita tidak memakai data API mentah lagi, melainkan memakai konstan dari ai-models.ts
+        // Namun kita biarkan fetch nya jalan saja / kita comment out jika tidak dibutuhkan
+        // const modelsData = await modelsRes.json();
+        // setModels(modelsData.data || []);
       }
       
       fetchKB();
@@ -137,8 +139,16 @@ export default function AISettingsPage() {
     );
   }
 
+  // Filter models for the modal picker
+  const filteredModels = AI_MODELS.filter(m => 
+    m.id.toLowerCase().includes(searchModel.toLowerCase()) || 
+    m.provider.toLowerCase().includes(searchModel.toLowerCase())
+  );
+
+  const selectedModelObj = AI_MODELS.find(m => m.id === model) || AI_MODELS.find(m => m.id === "gpt-4o") || AI_MODELS[0];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       <div>
         <h1 className="text-2xl font-bold text-[#F1F5F9]">AI Settings</h1>
         <p className="text-[#94A3B8] text-sm mt-1">Konfigurasi chatbot AI & Personalitas</p>
@@ -167,19 +177,16 @@ export default function AISettingsPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-[#94A3B8] mb-2 uppercase tracking-wider">AI Model</label>
-              <select 
-                value={model} 
-                onChange={e => setModel(e.target.value)} 
-                className="w-full px-4 py-2 bg-[#0A0F1E] border border-[rgba(255,255,255,0.08)] rounded-lg text-[#F1F5F9] focus:outline-none focus:ring-1 focus:ring-[#3B82F6]"
+              <div 
+                onClick={() => setIsModelModalOpen(true)}
+                className="w-full flex items-center justify-between px-4 py-2.5 bg-[#0A0F1E] border border-[rgba(255,255,255,0.08)] hover:border-[#3B82F6]/50 rounded-lg cursor-pointer transition-colors group"
               >
-                {models.length > 0 ? (
-                  models.map((m) => (
-                    <option key={m.id} value={m.id}>{m.id}</option>
-                  ))
-                ) : (
-                  <option value="gpt-4o">gpt-4o (default)</option>
-                )}
-              </select>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium text-[#F1F5F9] truncate group-hover:text-[#3B82F6] transition-colors">{selectedModelObj?.id || model}</span>
+                  <span className="text-[10px] text-[#94A3B8] capitalize">{selectedModelObj?.provider || 'Unknown'} • {selectedModelObj?.contextLength || 'N/A'} tokens</span>
+                </div>
+                <ChevronDown className="w-4 h-4 text-[#94A3B8] group-hover:text-[#3B82F6] transition-colors" />
+              </div>
             </div>
           </div>
           
@@ -301,6 +308,86 @@ export default function AISettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Model Picker Modal */}
+      {isModelModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#0B1120] border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh] overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-[rgba(255,255,255,0.05)] shrink-0">
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-[#F1F5F9]">Pilih Model AI</h3>
+                <p className="text-xs text-[#94A3B8]">Daftar model language terintegrasi beserta kapasitas token & biaya operasional.</p>
+              </div>
+              <button onClick={() => setIsModelModalOpen(false)} className="p-2 text-[#94A3B8] hover:text-white bg-[#1E293B] hover:bg-[#334155] rounded-full transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="p-4 shrink-0 bg-[#0B1120] border-b border-[rgba(255,255,255,0.02)]">
+              <input
+                type="text"
+                placeholder="Cari model id atau provider (ex: gpt, gemini, google...)"
+                value={searchModel}
+                onChange={(e) => setSearchModel(e.target.value)}
+                className="w-full px-4 py-2.5 bg-[#0f172a] border border-[rgba(255,255,255,0.08)] rounded-xl text-sm text-[#F1F5F9] focus:outline-none focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6] placeholder:text-[#475569] transition-all"
+              />
+            </div>
+            
+            <div className="overflow-y-auto p-2">
+              <div className="flex flex-col gap-1.5 p-2">
+                {filteredModels.map((m) => {
+                  const isSelected = model === m.id;
+                  return (
+                    <div 
+                      key={m.id}
+                      onClick={() => {
+                        setModel(m.id);
+                        setIsModelModalOpen(false);
+                      }}
+                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 cursor-pointer rounded-xl transition-all border ${isSelected ? 'bg-[#3B82F6]/10 border-[#3B82F6]/50 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent border-transparent hover:bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.05)]'}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-[#3B82F6]' : 'border-[#475569]'}`}>
+                          {isSelected && <div className="w-2 h-2 rounded-full bg-[#3B82F6]" />}
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`font-semibold text-sm ${isSelected ? 'text-[#3B82F6]' : 'text-[#F1F5F9]'}`}>{m.id}</span>
+                            <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-[#1E293B] text-[#94A3B8] border border-[rgba(255,255,255,0.05)]">{m.provider}</span>
+                          </div>
+                          
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
+                            <div className="flex items-center gap-1.5 text-xs text-[#94A3B8]">
+                              <Layers className="w-3.5 h-3.5 text-[#8B5CF6]" />
+                              <span>{m.contextLength} limit token</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-xs text-[#94A3B8]">
+                              <DollarSign className="w-3.5 h-3.5 text-[#10B981]" />
+                              <span><strong className="text-[#CBD5E1] font-medium">{m.inputPrice}</strong> in / <strong className="text-[#CBD5E1] font-medium">{m.outputPrice}</strong> out <span className="text-[10px] opacity-70">(per 1M)</span></span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {isSelected && (
+                        <div className="hidden sm:flex items-center justify-center bg-[#3B82F6] text-white rounded-full p-1.5">
+                          <Check className="w-4 h-4" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {filteredModels.length === 0 && (
+                  <div className="text-center py-10 text-[#64748B]">
+                    <Cpu className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                    <p className="text-sm">Model tidak ditemukan</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
