@@ -9,11 +9,20 @@ import { id } from "date-fns/locale";
 export default function OwnerAnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filterPriority, setFilterPriority] = useState("all");
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({ judul: "", isi: "", prioritas: "medium" });
+
+  const filteredAnnouncements = announcements.filter((a) => {
+    const matchesSearch = a.judul.toLowerCase().includes(search.toLowerCase()) || 
+                         a.isi.toLowerCase().includes(search.toLowerCase());
+    const matchesPriority = filterPriority === "all" || a.prioritas === filterPriority;
+    return matchesSearch && matchesPriority;
+  });
 
   useEffect(() => {
     fetchAnnouncements();
@@ -81,37 +90,67 @@ export default function OwnerAnnouncementsPage() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-[#F1F5F9]">Pengumuman & Notifikasi</h1>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-[#F1F5F9]">Pengumuman & Notifikasi</h1>
+          <p className="text-[#94A3B8] text-sm mt-1">Kelola informasi global untuk seluruh tenant</p>
+        </div>
         
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#3B82F6] hover:bg-[#2563EB] text-white text-sm font-medium rounded-lg transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-[#3B82F6] hover:bg-[#2563EB] text-white text-sm font-medium rounded-xl transition-all shadow-lg shadow-[#3B82F6]/20"
         >
           <Plus className="w-4 h-4" />
           Buat Pengumuman Baru
         </button>
       </div>
 
+      <div className="glass-card p-4 mb-6 flex flex-col md:flex-row gap-4 items-center">
+        <div className="relative flex-1 w-full">
+          <input
+            type="text"
+            placeholder="Cari pengumuman..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-4 pr-4 py-2 bg-[#0A0F1E] border border-[rgba(255,255,255,0.08)] rounded-xl text-[#F1F5F9] focus:outline-none focus:border-[#56D6FF] text-sm"
+          />
+        </div>
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          {["all", "low", "medium", "high", "urgent"].map((p) => (
+            <button
+              key={p}
+              onClick={() => setFilterPriority(p)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all border ${
+                filterPriority === p 
+                  ? "bg-[#56D6FF]/10 border-[#56D6FF] text-[#56D6FF]" 
+                  : "bg-transparent border-[rgba(255,255,255,0.08)] text-[#94A3B8] hover:border-[#56D6FF]/50"
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {loading ? (
         <div className="flex items-center justify-center p-12">
           <Loader2 className="w-8 h-8 animate-spin text-[#3B82F6]" />
         </div>
-      ) : announcements.length === 0 ? (
+      ) : filteredAnnouncements.length === 0 ? (
         <div className="glass-card overflow-hidden">
           <div className="p-12 text-center text-[#94A3B8]">
             <div className="w-16 h-16 bg-[#1E293B] border border-[rgba(255,255,255,0.05)] rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Megaphone className="w-8 h-8 text-[#94A3B8]" />
             </div>
-            <h3 className="text-lg font-medium text-[#F1F5F9] mb-2">Belum ada pengumuman</h3>
+            <h3 className="text-lg font-medium text-[#F1F5F9] mb-2">Tidak ada yang ditemukan</h3>
             <p className="max-w-md mx-auto">
-              Buat pengumuman baru untuk memberitahukan update fitur, jadwal maintenance, atau promo kepada semua tenant.
+              Tidak ada pengumuman yang cocok dengan pencarian atau filter Anda.
             </p>
           </div>
         </div>
       ) : (
         <div className="grid gap-4">
-          {announcements.map((announcement) => (
+          {filteredAnnouncements.map((announcement) => (
             <div key={announcement.id} className="glass-card p-6 flex flex-col md:flex-row gap-6 relative group">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">

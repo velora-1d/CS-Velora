@@ -17,6 +17,9 @@ const displayFont = Syne({
 export const metadata: Metadata = {
   title: "Velora Control Room",
   description: "WA Chatbot Admin Panel untuk operasi bisnis Velora ID",
+  icons: {
+    icon: "/logo-velora.png",
+  },
 };
 
 export default function RootLayout({

@@ -2,16 +2,36 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { tenants, subscriptions } from "@/db/schema";
-import { sql, eq } from "drizzle-orm";
+import { sql, eq, and, gte } from "drizzle-orm";
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await auth();
 
   if (!session?.user || session.user.role !== "owner") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const start = searchParams.get("start");
+  const end = searchParams.get("end");
+
   try {
+    const dateFilter = [];
+    if (start) dateFilter.push(gte(tenants.createdAt, new Date(start)));
+    if (end) {
+      const endDate = new Date(end);
+      endDate.setHours(23, 59, 59, 999);
+      dateFilter.push(sql`${tenants.createdAt} <= ${endDate.toISOString()}`);
+    }
+
+    const subDateFilter = [];
+    if (start) subDateFilter.push(gte(subscriptions.confirmedAt, new Date(start)));
+    if (end) {
+      const endDate = new Date(end);
+      endDate.setHours(23, 59, 59, 999);
+      subDateFilter.push(sql`${subscriptions.confirmedAt} <= ${endDate.toISOString()}`);
+    }
+
     // 1. Total Tenants & Growth
     const [tenantStats] = await db
       .select({
@@ -20,7 +40,8 @@ export async function GET() {
         trial: sql<number>`count(*) filter (where status = 'trial')`,
         suspended: sql<number>`count(*) filter (where status = 'suspended' or status = 'expired')`,
       })
-      .from(tenants);
+      .from(tenants)
+      .where(and(...dateFilter));
 
     // 2. Paket Distribution
     const [paketStats] = await db
@@ -28,7 +49,8 @@ export async function GET() {
         basic: sql<number>`count(*) filter (where paket = 'basic')`,
         pro: sql<number>`count(*) filter (where paket = 'pro')`,
       })
-      .from(tenants);
+      .from(tenants)
+      .where(and(...dateFilter));
 
     // 3. Revenue Data (Total Confirmed Subscriptions)
     const [revenueStats] = await db
@@ -37,7 +59,14 @@ export async function GET() {
         thisMonth: sql<number>`COALESCE(sum(amount) filter (where date_trunc('month', confirmed_at) = date_trunc('month', current_date)), 0)`,
       })
       .from(subscriptions)
-      .where(eq(subscriptions.status, 'active'));
+      .where(and(eq(subscriptions.status, 'active'), ...subDateFilter));
+
+    // 4. Detail Tenants (for export)
+    const tenantList = await db
+      .select()
+      .from(tenants)
+      .where(and(...dateFilter))
+      .orderBy(sql`${tenants.createdAt} DESC`);
 
     return NextResponse.json({
       tenants: {
@@ -45,6 +74,7 @@ export async function GET() {
         active: Number(tenantStats.active),
         trial: Number(tenantStats.trial),
         suspended: Number(tenantStats.suspended),
+        list: tenantList,
       },
       paket: {
         basic: Number(paketStats.basic),

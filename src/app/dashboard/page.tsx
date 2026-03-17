@@ -1,7 +1,8 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { orders, products, promos, consultationSlots } from "@/db/schema";
-import { eq, and, gte, lte } from "drizzle-orm";
+import { eq, and, gte, lte, sql } from "drizzle-orm";
+import TenantCharts from "@/components/dashboard/tenant-charts";
 import { formatRupiah } from "@/lib/utils";
 import {
   MessageCircle,
@@ -62,6 +63,23 @@ async function getStats(tenantId: string) {
       )
     );
 
+  // Weekly trend
+  const weeklyTrend = await db
+    .select({
+      date: sql<string>`date_trunc('day', created_at)::date`,
+      count: sql<number>`count(*)`,
+      revenue: sql<number>`COALESCE(sum(total_harga), 0)`,
+    })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.tenantId, tenantId),
+        gte(orders.createdAt, sql`current_date - interval '7 days'`)
+      )
+    )
+    .groupBy(sql`date_trunc('day', created_at)::date`)
+    .orderBy(sql`date_trunc('day', created_at)::date`);
+
   // Pending orders
   const pendingOrders = todayOrders.filter((o) => o.status === "pending");
 
@@ -73,6 +91,7 @@ async function getStats(tenantId: string) {
     todaySlots: todaySlots.length,
     pendingOrders: pendingOrders.length,
     totalRevenue: totalOrders.reduce((sum, o) => sum + o.totalHarga, 0),
+    weeklyTrend,
   };
 }
 
@@ -234,6 +253,8 @@ export default async function DashboardPage() {
           </div>
         ))}
       </div>
+
+      <TenantCharts data={stats.weeklyTrend} />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.35fr_0.95fr]">
         <div className="glass-card p-6">

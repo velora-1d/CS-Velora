@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { subscriptions } from "@/db/schema";
 import { desc, eq, sql } from "drizzle-orm";
-import { CreditCard, Search } from "lucide-react";
+import { CreditCard } from "lucide-react";
 import BillingActions from "./BillingActions";
 
 export default async function OwnerBillingPage() {
@@ -48,20 +48,6 @@ export default async function OwnerBillingPage() {
       </div>
 
       <div className="glass-card overflow-hidden">
-        <div className="p-6 border-b border-[rgba(255,255,255,0.05)] flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <h2 className="text-lg font-medium text-[#F1F5F9] flex items-center gap-2">
-            <CreditCard className="h-5 w-5 text-[#56D6FF]" />
-            Tagihan Menunggu Konfirmasi
-          </h2>
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
-            <input
-              type="text"
-              placeholder="Cari tenant..."
-              className="w-full pl-9 pr-4 py-2 bg-[#0A0F1E] border border-[rgba(255,255,255,0.08)] rounded-lg text-[#F1F5F9] focus:outline-none focus:border-[#3B82F6] text-sm"
-            />
-          </div>
-        </div>
         <BillingActions subs={pendingSubs as any} />
       </div>
     </div>

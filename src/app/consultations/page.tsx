@@ -41,6 +41,8 @@ export default function ConsultationsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
 
   // Form state for new slot
   const [newSlot, setNewSlot] = useState({
@@ -103,6 +105,20 @@ export default function ConsultationsPage() {
     }
   };
 
+  const filteredSlots = slots.filter(s => {
+    const matchesStatus = filterStatus === "all" || s.status === filterStatus;
+    const matchesSearch = !search || 
+      (s.productName?.toLowerCase().includes(search.toLowerCase()));
+    return matchesStatus && matchesSearch;
+  });
+
+  const filteredRequests = requests.filter(r => {
+    const matchesStatus = filterStatus === "all" || r.status === filterStatus;
+    const matchesSearch = !search || 
+      (r.fromNumber?.includes(search));
+    return matchesStatus && matchesSearch;
+  });
+
   return (
     <div className="space-y-6">
       <section className="hero-panel px-6 py-7 md:px-8">
@@ -128,22 +144,61 @@ export default function ConsultationsPage() {
         </div>
       </section>
 
-      {/* Tabs */}
-      <div className="flex gap-2 p-1 bg-[#1E293B]/40 rounded-2xl w-fit border border-[rgba(255,255,255,0.05)]">
-        {tabItems.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl transition-all ${
-              activeTab === tab.id 
-                ? "bg-[linear-gradient(135deg,rgba(86,214,255,0.2),rgba(103,167,255,0.1))] text-[#56D6FF] border border-[#56D6FF]/30" 
-                : "text-[#94A3B8] hover:text-[#F1F5F9] hover:bg-white/5"
-            }`}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        {/* Tabs */}
+        <div className="flex gap-2 p-1 bg-[#1E293B]/40 rounded-2xl w-fit border border-[rgba(255,255,255,0.05)]">
+          {tabItems.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setFilterStatus("all");
+                setSearch("");
+              }}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl transition-all ${
+                activeTab === tab.id 
+                  ? "bg-[linear-gradient(135deg,rgba(86,214,255,0.2),rgba(103,167,255,0.1))] text-[#56D6FF] border border-[#56D6FF]/30" 
+                  : "text-[#94A3B8] hover:text-[#F1F5F9] hover:bg-white/5"
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              <span className="text-sm font-medium">{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Filter Bar */}
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+          <div className="relative flex-1 sm:w-64">
+            <input
+              type="text"
+              placeholder={activeTab === 'slots' ? "Cari produk..." : "Cari nomor WA..."}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-4 pr-4 py-2.5 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-xl text-[#F1F5F9] focus:outline-none focus:border-[#3B82F6]/50 transition-all text-sm"
+            />
+          </div>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="w-full sm:w-40 px-3 py-2.5 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-xl text-[#F1F5F9] focus:outline-none focus:border-[#3B82F6]/50 transition-all text-sm"
           >
-            <tab.icon className="w-4 h-4" />
-            <span className="text-sm font-medium">{tab.label}</span>
-          </button>
-        ))}
+            <option value="all" className="bg-[#0A0F1E]">Semua Status</option>
+            {activeTab === 'slots' ? (
+              <>
+                <option value="tersedia" className="bg-[#0A0F1E]">Tersedia</option>
+                <option value="terbooking" className="bg-[#0A0F1E]">Terbooking</option>
+                <option value="diblokir" className="bg-[#0A0F1E]">Diblokir</option>
+              </>
+            ) : (
+              <>
+                <option value="pending" className="bg-[#0A0F1E]">Pending</option>
+                <option value="approved" className="bg-[#0A0F1E]">Disetujui</option>
+                <option value="rejected" className="bg-[#0A0F1E]">Ditolak</option>
+              </>
+            )}
+          </select>
+        </div>
       </div>
 
       {loading && (
@@ -155,13 +210,13 @@ export default function ConsultationsPage() {
 
       {!loading && activeTab === "slots" && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {slots.length === 0 ? (
+          {filteredSlots.length === 0 ? (
             <div className="col-span-full py-20 text-center glass-card border-dashed">
               <CalendarIcon className="w-12 h-12 mx-auto text-[#334155] mb-4" />
-              <p className="text-[#93A8C7]">Belum ada slot jadwal yang dibuat.</p>
+              <p className="text-[#93A8C7]">Tidak ada slot jadwal ditemukan.</p>
             </div>
           ) : (
-            slots.map((slot) => (
+            filteredSlots.map((slot) => (
               <div key={slot.id} className="panel-shell p-5 group flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-4">
@@ -214,7 +269,7 @@ export default function ConsultationsPage() {
                     </td>
                   </tr>
                 ) : (
-                  requests.map((req) => (
+                  filteredRequests.map((req) => (
                     <tr key={req.id} className="hover:bg-white/5 transition-colors group">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">

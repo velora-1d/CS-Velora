@@ -3,37 +3,64 @@
 import { useEffect, useState } from "react";
 import { 
   TrendingUp, Users, CreditCard, Activity,
-  PackageOpen, AlertCircle, CheckCircle2, DollarSign
+  PackageOpen, AlertCircle, CheckCircle2, DollarSign,
+  FileText, FileSpreadsheet, FileJson
 } from "lucide-react";
+import { formatRupiah } from "@/lib/utils";
+import { exportToPDF, exportToExcel, exportToCSV } from "@/lib/export-utils";
+import { toast } from "sonner";
 
 export default function OwnerReportsPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  const fetchReports = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (startDate) params.set("start", startDate);
+      if (endDate) params.set("end", endDate);
+      
+      const res = await fetch(`/api/owner/reports?${params.toString()}`);
+      if (res.ok) {
+        const json = await res.json();
+        setData(json);
+      }
+    } catch (error) {
+      console.error("Gagal memuat laporan", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchReports = async () => {
-      try {
-        const res = await fetch("/api/owner/reports");
-        if (res.ok) {
-          const json = await res.json();
-          setData(json);
-        }
-      } catch (error) {
-        console.error("Gagal memuat laporan", error);
-      } finally {
-        setLoading(false);
-      }
+    fetchReports();
+  }, [startDate, endDate]);
+
+  const handleExport = (type: "pdf" | "excel" | "csv") => {
+    if (!data?.tenants?.list) return;
+
+    const exportConfig = {
+      filename: `Report_Owner_Tenants_${new Date().toISOString().split('T')[0]}`,
+      title: "Laporan Data Tenant CS Velora - Master",
+      columns: ["Nama", "Email", "Telepon", "Paket", "Status", "Terdaftar"],
+      rows: data.tenants.list.map((t: any) => [
+        t.name,
+        t.email,
+        t.phone,
+        t.paket,
+        t.status,
+        new Date(t.createdAt).toLocaleDateString("id-ID")
+      ])
     };
 
-    fetchReports();
-  }, []);
-
-  const formatRupiah = (angka: number) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    }).format(angka);
+    if (type === "pdf") exportToPDF(exportConfig);
+    else if (type === "excel") exportToExcel(exportConfig);
+    else exportToCSV(exportConfig);
+    
+    toast.success(`Laporan ${type.toUpperCase()} berhasil diunduh`);
   };
 
   if (loading) {
@@ -52,10 +79,54 @@ export default function OwnerReportsPage() {
     );
   }
 
-  return (
+    return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-[#F1F5F9]">Laporan & Statistik Bisnis</h1>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-[#F1F5F9]">Laporan & Statistik Bisnis</h1>
+          <p className="text-[#94A3B8] text-sm mt-1">Data agregat seluruh tenant dan pendapatan sistem</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-xl px-4 py-2">
+            <span className="text-[10px] uppercase font-bold text-[#64748B]">Mulai</span>
+            <input 
+              type="date" 
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="bg-transparent border-none text-xs text-[#F1F5F9] focus:outline-none focus:ring-0 [color-scheme:dark]"
+            />
+          </div>
+          <div className="flex items-center gap-2 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-xl px-4 py-2">
+            <span className="text-[10px] uppercase font-bold text-[#64748B]">Sampai</span>
+            <input 
+              type="date" 
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="bg-transparent border-none text-xs text-[#F1F5F9] focus:outline-none focus:ring-0 [color-scheme:dark]"
+            />
+          </div>
+          <div className="h-6 w-px bg-white/10 mx-1 hidden md:block" />
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => handleExport("pdf")}
+              className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl hover:bg-red-500/20 transition-all text-sm font-medium"
+            >
+              <FileText className="w-4 h-4" /> PDF
+            </button>
+            <button 
+              onClick={() => handleExport("excel")}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-xl hover:bg-emerald-500/20 transition-all text-sm font-medium"
+            >
+              <FileSpreadsheet className="w-4 h-4" /> Excel
+            </button>
+            <button 
+              onClick={() => handleExport("csv")}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 text-blue-500 border border-blue-500/20 rounded-xl hover:bg-blue-500/20 transition-all text-sm font-medium"
+            >
+              <FileJson className="w-4 h-4" /> CSV
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

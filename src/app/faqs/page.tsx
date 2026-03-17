@@ -10,7 +10,6 @@ import {
   ToggleLeft,
   ToggleRight,
   Loader2,
-  Search,
 } from "lucide-react";
 
 type FaqItem = {
@@ -31,6 +30,7 @@ export default function FaqsPage() {
   const [faqs, setFaqs] = useState<FaqItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "aktif" | "nonaktif">("all");
   const [showDrawer, setShowDrawer] = useState(false);
   const [editingFaq, setEditingFaq] = useState<FaqItem | null>(null);
   const [formData, setFormData] = useState<FaqForm>(initialFormData);
@@ -57,10 +57,14 @@ export default function FaqsPage() {
     }
   };
 
-  const filtered = faqs.filter((f) =>
-    f.pertanyaan.toLowerCase().includes(search.toLowerCase()) ||
-    f.jawaban.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = faqs.filter((f) => {
+    const matchSearch = f.pertanyaan.toLowerCase().includes(search.toLowerCase()) ||
+                       f.jawaban.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = filterStatus === "all" || 
+                       (filterStatus === "aktif" && f.aktif) || 
+                       (filterStatus === "nonaktif" && !f.aktif);
+    return matchSearch && matchStatus;
+  });
 
   const handleOpenDrawer = (faq?: FaqItem) => {
     if (faq) {
@@ -169,18 +173,27 @@ export default function FaqsPage() {
         </div>
       </section>
 
-      <div className="glass-card p-5 md:p-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="relative min-w-[260px]">
+      <div className="glass-card p-5 md:p-6 mb-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center">
+          <div className="relative flex-1">
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Cari FAQ..."
-              className="app-input pl-4"
+              className="app-input w-full"
             />
           </div>
-          <button onClick={() => handleOpenDrawer()} className="app-button-primary whitespace-nowrap">
+          <select 
+            value={filterStatus} 
+            onChange={(e) => setFilterStatus(e.target.value as "all" | "aktif" | "nonaktif")}
+            className="app-select w-full md:w-48"
+          >
+            <option value="all">Semua Status</option>
+            <option value="aktif">Aktif di AI</option>
+            <option value="nonaktif">Nonaktif</option>
+          </select>
+          <button onClick={() => handleOpenDrawer()} className="app-button-primary whitespace-nowrap w-full md:w-auto">
             <Plus className="h-4 w-4" /> Tambah FAQ
           </button>
         </div>

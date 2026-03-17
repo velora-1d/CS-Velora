@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Lock, Mail, Store, Eye, EyeOff } from "lucide-react";
+import { Loader2, Lock, Mail, Store, Eye, EyeOff, CheckCircle2, Bot, BarChart3, ShieldCheck, Zap, User } from "lucide-react";
+import Image from "next/image";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -44,121 +45,225 @@ export default function RegisterPage() {
     }
   };
 
+  const features = [
+    {
+      icon: <Bot className="w-6 h-6 text-[#56D6FF]" />,
+      title: "AI Assistant Terintegrasi",
+      desc: "Chatbot kelas dunia yang melayani pelanggan Anda 24/7 secara otomatis."
+    },
+    {
+      icon: <BarChart3 className="w-6 h-6 text-[#67A7FF]" />,
+      title: "Laporan & Analitik Brutal",
+      desc: "Pantau pertumbuhan bisnis secara real-time dengan grafik dan KPI premium."
+    },
+    {
+      icon: <ShieldCheck className="w-6 h-6 text-[#9D8CFF]" />,
+      title: "Keamanan Kelas Tinggi",
+      desc: "Perlindungan data enkripsi end-to-end untuk seluruh operasi bisnis Anda."
+    },
+    {
+      icon: <Zap className="w-6 h-6 text-[#4ADE80]" />,
+      title: "Trial Gratis 2 Hari",
+      desc: "Dapatkan akses penuh ke seluruh fitur premium tanpa komitmen awal."
+    }
+  ];
+
   if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0A0F1E] p-4">
-        <div className="w-full max-w-md glass-card p-8 text-center">
-          <div className="w-16 h-16 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Store className="w-8 h-8" />
+        <div className="w-full max-w-md glass-panel p-10 text-center relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-400 to-emerald-500" />
+          <div className="w-20 h-20 bg-green-500/10 text-green-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-lg shadow-green-500/10 border border-green-500/20">
+            <CheckCircle2 className="w-10 h-10" />
           </div>
-          <h2 className="text-2xl font-bold text-[#F1F5F9] mb-2">Pendaftaran Berhasil!</h2>
-          <p className="text-[#94A3B8] mb-6">
-            Toko Anda berhasil didaftarkan. Anda mendapatkan <span className="text-white font-medium">Trial Gratis selama 2 hari</span>.
+          <h2 className="text-3xl font-display font-bold text-[#F1F5F9] mb-3">Pendaftaran Berhasil!</h2>
+          <p className="text-[#94A3B8] mb-8 leading-relaxed">
+            Toko <span className="text-[#56D6FF] font-semibold">{namaToko}</span> berhasil didaftarkan. Anda mendapatkan akses <span className="text-white font-medium">Trial Premium selama 2 hari</span>.
           </p>
-          <p className="text-sm text-[#94A3B8]">Mengarahkan ke halaman login...</p>
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="w-6 h-6 animate-spin text-[#3B82F6]" />
+            <p className="text-sm text-[#64748B] font-medium tracking-wide">MENGARAHKAN KE LOGIN...</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0A0F1E] p-4">
-      <div className="w-full max-w-md">
-        <div className="glass-card p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-[#F1F5F9]">Daftar Velora ID</h1>
-            <p className="text-[#94A3B8] mt-2">Mulai kelola CS WhatsApp toko Anda</p>
+    <div className="min-h-screen flex bg-[#0A0F1E] font-body">
+      {/* Left Side: Features (Desktop Only) */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.15),transparent),radial-gradient(circle_at_bottom_left,rgba(86,214,255,0.1),transparent)] border-r border-[rgba(255,255,255,0.05)]">
+        <div className="absolute inset-0 bg-[#0A0F1E]/40 backdrop-blur-[2px]" />
+        
+        <div className="relative z-10 w-full flex flex-col justify-between p-12 xl:p-20">
+          <div className="flex items-center gap-4">
+            <div className="relative w-12 h-12">
+              <Image src="/logo-velora.png" alt="Velora Logo" fill className="object-contain" priority />
+            </div>
+            <div>
+              <h1 className="text-2xl font-display font-bold text-[#F1F5F9] tracking-tight">Velora ID</h1>
+              <p className="text-[10px] uppercase tracking-[0.3em] text-[#56D6FF] font-bold">Control Room</p>
+            </div>
           </div>
 
-          {error && (
-            <div className="mb-4 p-3 bg-[#EF4444]/10 border border-[#EF4444]/30 rounded-lg text-[#EF4444] text-sm">
-              {error}
+          <div className="max-w-md">
+            <h2 className="text-4xl xl:text-5xl font-display font-bold text-[#F1F5F9] leading-tight mb-8">
+              Mulai Langkah <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#56D6FF] via-[#67A7FF] to-[#9D8CFF]">Digital Anda</span> Hari Ini.
+            </h2>
+            
+            <div className="space-y-8">
+              {features.map((f, i) => (
+                <div key={i} className="flex gap-5 group">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:border-[#56D6FF]/30 group-hover:bg-[#56D6FF]/5">
+                    {f.icon}
+                  </div>
+                  <div>
+                    <h3 className="text-[#F1F5F9] font-semibold mb-1">{f.title}</h3>
+                    <p className="text-[#94A3B8] text-sm leading-relaxed">{f.desc}</p>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm text-[#94A3B8] mb-2">Nama Toko</label>
-              <div className="relative">
-                <Store className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
-                <input
-                  type="text"
-                  value={namaToko}
-                  onChange={(e) => setNamaToko(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-[#0A0F1E] border border-[rgba(255,255,255,0.08)] rounded-lg text-[#F1F5F9] focus:border-[#3B82F6] focus:outline-none"
-                  placeholder="Contoh: Velora Store"
-                  required
-                />
+          <div className="pt-10 border-t border-[rgba(255,255,255,0.05)]">
+            <p className="text-[#64748B] text-sm">© 2026 Velora ID — Advanced Agentic Solutions</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Side: Auth Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 md:p-12 relative overflow-hidden">
+        {/* Decorative elements for mobile */}
+        <div className="lg:hidden absolute top-[-10%] right-[-10%] w-[300px] h-[300px] bg-[#3B82F6]/10 blur-[100px] rounded-full" />
+        <div className="lg:hidden absolute bottom-[-10%] left-[-10%] w-[300px] h-[300px] bg-[#9D8CFF]/10 blur-[100px] rounded-full" />
+
+        <div className="w-full max-w-md space-y-8 relative z-10">
+          <div className="lg:hidden text-center mb-10">
+            <div className="flex justify-center mb-4">
+              <div className="relative w-20 h-20">
+                <Image src="/logo-velora.png" alt="Velora Logo" fill className="object-contain" priority />
               </div>
             </div>
+            <h1 className="text-3xl font-display font-bold text-[#F1F5F9]">Velora ID</h1>
+            <p className="text-[#56D6FF] uppercase tracking-[0.2em] text-[10px] font-bold mt-1">Control Room</p>
+          </div>
 
-            <div>
-              <label className="block text-sm text-[#94A3B8] mb-2">Nama Anda</label>
-              <input
-                type="text"
-                value={namaPemilik}
-                onChange={(e) => setNamaPemilik(e.target.value)}
-                className="w-full px-4 py-3 bg-[#0A0F1E] border border-[rgba(255,255,255,0.08)] rounded-lg text-[#F1F5F9] focus:border-[#3B82F6] focus:outline-none"
-                placeholder="Nama lengkap"
-                required
-              />
+          <div className="glass-panel p-8 md:p-10">
+            <div className="mb-8">
+              <h2 className="text-2xl font-display font-semibold text-[#F1F5F9]">
+                Registrasi Toko Baru
+              </h2>
+              <p className="text-[#94A3B8] text-sm mt-2">
+                Dapatkan trial premium 2 hari secara otomatis setelah mendaftar.
+              </p>
             </div>
 
-            <div>
-              <label className="block text-sm text-[#94A3B8] mb-2">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-[#0A0F1E] border border-[rgba(255,255,255,0.08)] rounded-lg text-[#F1F5F9] focus:border-[#3B82F6] focus:outline-none"
-                  placeholder="email@domain.com"
-                  required
-                />
+            {error && (
+              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-sm flex items-center gap-3">
+                <Lock className="w-4 h-4 flex-shrink-0" />
+                {error}
               </div>
-            </div>
+            )}
 
-            <div>
-              <label className="block text-sm text-[#94A3B8] mb-2">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 bg-[#0A0F1E] border border-[rgba(255,255,255,0.08)] rounded-lg text-[#F1F5F9] focus:border-[#3B82F6] focus:outline-none"
-                  placeholder="Minimal 6 karakter"
-                  minLength={6}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#F1F5F9] p-1"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#64748B] ml-1">Nama Toko / Bisnis</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-[#3B82F6] text-[#64748B]">
+                    <Store className="w-5 h-5" />
+                  </div>
+                  <input
+                    type="text"
+                    value={namaToko}
+                    onChange={(e) => setNamaToko(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3.5 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-2xl text-[#F1F5F9] placeholder-[#475569] focus:outline-none focus:border-[#3B82F6]/50 focus:ring-4 focus:ring-[#3B82F6]/5 transition-all outline-none"
+                    placeholder="Contoh: Velora Store"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#64748B] ml-1">Nama Pemilik</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-[#3B82F6] text-[#64748B]">
+                    <User className="w-5 h-5" />
+                  </div>
+                  <input
+                    type="text"
+                    value={namaPemilik}
+                    onChange={(e) => setNamaPemilik(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3.5 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-2xl text-[#F1F5F9] placeholder-[#475569] focus:outline-none focus:border-[#3B82F6]/50 focus:ring-4 focus:ring-[#3B82F6]/5 transition-all outline-none"
+                    placeholder="Nama lengkap Anda"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#64748B] ml-1">Email Bisnis</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-[#3B82F6] text-[#64748B]">
+                    <Mail className="w-5 h-5" />
+                  </div>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3.5 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-2xl text-[#F1F5F9] placeholder-[#475569] focus:outline-none focus:border-[#3B82F6]/50 focus:ring-4 focus:ring-[#3B82F6]/5 transition-all outline-none"
+                    placeholder="email@perusahaan.com"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#64748B] ml-1">Kata Sandi</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-[#3B82F6] text-[#64748B]">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-12 pr-12 py-3.5 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-2xl text-[#F1F5F9] placeholder-[#475569] focus:outline-none focus:border-[#3B82F6]/50 focus:ring-4 focus:ring-[#3B82F6]/5 transition-all outline-none"
+                    placeholder="Min. 6 karakter"
+                    minLength={6}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#64748B] hover:text-[#F1F5F9] transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 bg-gradient-to-r from-[#3B82F6] to-[#2563EB] hover:from-[#2563EB] hover:to-[#1D4ED8] text-white font-bold rounded-2xl shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 disabled:pointer-events-none mt-4"
+              >
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  "Mulai Trial Gratis Sekarang"
+                )}
+              </button>
+            </form>
+
+            <div className="mt-8 pt-6 border-t border-[rgba(255,255,255,0.05)] text-center">
+              <p className="text-[#94A3B8] text-sm">
+                Sudah punya akun?{" "}
+                <button onClick={() => router.push("/login")} className="text-[#3B82F6] font-semibold hover:underline">
+                  Masuk di sini
                 </button>
-              </div>
+              </p>
             </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-[#3B82F6] hover:bg-[#2563EB] text-white font-medium rounded-lg flex justify-center items-center gap-2 disabled:opacity-50 mt-6"
-            >
-              {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> Mendaftar...</> : "Daftar & Mulai Trial 2 Hari"}
-            </button>
-          </form>
-
-          <div className="text-center mt-6 pt-6 border-t border-[rgba(255,255,255,0.08)]">
-            <p className="text-[#94A3B8] text-sm mb-2">Sudah punya akun?</p>
-            <button
-              onClick={() => router.push("/login")}
-              className="text-[#3B82F6] hover:text-[#2563EB] font-medium"
-            >
-              Masuk di sini
-            </button>
           </div>
         </div>
       </div>

@@ -10,7 +10,6 @@ import {
   ToggleLeft,
   ToggleRight,
   Loader2,
-  Search,
   Calendar,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -69,6 +68,7 @@ export default function PromosPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "aktif" | "nonaktif">("all");
+  const [filterType, setFilterType] = useState<"all" | "produk" | "voucher">("all");
   const [showDrawer, setShowDrawer] = useState(false);
   const [editingPromo, setEditingPromo] = useState<PromoItem | null>(null);
   const [formData, setFormData] = useState<PromoForm>(initialFormData);
@@ -109,12 +109,14 @@ export default function PromosPage() {
   const isExpired = (endDate: string) => new Date(endDate) < new Date();
 
   const filtered = promos.filter((p) => {
-    const matchSearch = p.judul.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = p.judul.toLowerCase().includes(search.toLowerCase()) || 
+                       p.deskripsi.toLowerCase().includes(search.toLowerCase());
     const matchStatus =
       filterStatus === "all" ||
       (filterStatus === "aktif" && p.aktif && !isExpired(p.tanggalBerakhir)) ||
       (filterStatus === "nonaktif" && (!p.aktif || isExpired(p.tanggalBerakhir)));
-    return matchSearch && matchStatus;
+    const matchType = filterType === "all" || p.tipe === filterType;
+    return matchSearch && matchStatus && matchType;
   });
 
   const activeCount = promos.filter((p) => p.aktif && !isExpired(p.tanggalBerakhir)).length;
@@ -249,12 +251,17 @@ export default function PromosPage() {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-3 md:flex-row">
             <div className="relative min-w-[260px]">
-              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari promo..." className="app-input pl-4" />
+              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari promo..." className="app-input" />
             </div>
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as "all" | "aktif" | "nonaktif")} className="app-select min-w-[160px]">
               <option value="all">Semua Status</option>
               <option value="aktif">Aktif</option>
               <option value="nonaktif">Nonaktif / Expired</option>
+            </select>
+            <select value={filterType} onChange={(e) => setFilterType(e.target.value as "all" | "produk" | "voucher")} className="app-select min-w-[160px]">
+              <option value="all">Semua Tipe</option>
+              <option value="produk">Promo Produk</option>
+              <option value="voucher">Voucher Belanja</option>
             </select>
           </div>
           <button onClick={() => handleOpenDrawer()} className="app-button-primary whitespace-nowrap">
@@ -271,22 +278,22 @@ export default function PromosPage() {
           </div>
           <span className="status-pill bg-[#67A7FF]/10 text-[#67A7FF]">{filtered.length} item</span>
         </div>
-        <div className="overflow-x-auto px-3 py-3">
+        <div className="overflow-x-auto custom-scrollbar px-3 py-3">
           <table className="table-shell min-w-full">
             <thead>
-              <tr>
-                <th className="px-4 py-3 text-left">Promo</th>
-                <th className="px-4 py-3 text-left">Value</th>
-                <th className="px-4 py-3 text-left">Target</th>
-                <th className="px-4 py-3 text-left">Periode</th>
-                <th className="px-4 py-3 text-left">Status</th>
-                <th className="px-4 py-3 text-right">Aksi</th>
+              <tr className="border-b border-[rgba(255,255,255,0.08)]">
+                <th className="px-4 py-3 text-left whitespace-nowrap">Promo</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Value</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Target</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Periode</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Status</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-16 text-center">
+                  <td colSpan={6} className="px-4 py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <Loader2 className="h-8 w-8 animate-spin text-[#56D6FF]" />
                       <p className="text-[#93A8C7]">Memuat promo...</p>
@@ -295,7 +302,7 @@ export default function PromosPage() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-16 text-center text-[#93A8C7]">
+                  <td colSpan={6} className="px-4 py-16 text-center text-[#93A8C7]">
                     Tidak ada promo ditemukan.
                   </td>
                 </tr>
@@ -303,8 +310,8 @@ export default function PromosPage() {
                 filtered.map((promo) => {
                   const expired = isExpired(promo.tanggalBerakhir);
                   return (
-                    <tr key={promo.id}>
-                      <td className="px-4 py-4">
+                    <tr key={promo.id} className="border-b border-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.02)] transition-colors">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-4">
                           <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(255,255,255,0.05)] ${promo.tipe === 'voucher' ? 'text-[#A78BFA]' : 'text-[#FFBF69]'}`}>
                             <Megaphone className="h-5 w-5" />
@@ -319,7 +326,7 @@ export default function PromosPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm font-semibold text-[#F1F5F9]">
                           {promo.diskonTipe === 'persen' ? `${promo.diskonValue}%` : `Rp ${promo.diskonValue.toLocaleString('id-ID')}`}
                         </div>
@@ -327,18 +334,18 @@ export default function PromosPage() {
                           Min: Rp {promo.minPembelian?.toLocaleString('id-ID') || 0}
                         </div>
                       </td>
-                      <td className="px-4 py-4">
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${promo.targetTipe === 'all' ? 'bg-blue-500/10 text-blue-400' : 'bg-purple-500/10 text-purple-400'}`}>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${promo.targetTipe === 'all' ? 'bg-blue-500/10 text-blue-400' : 'bg-purple-500/10 text-purple-400'}`}>
                           {promo.targetTipe === 'all' ? 'Semua Produk' : 'Pilihan'}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-xs text-[#93A8C7]">
+                      <td className="px-4 py-4 text-xs text-[#93A8C7] whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <Calendar className="h-3 w-3" />
                           {formatDate(promo.tanggalMulai)} — {formatDate(promo.tanggalBerakhir)}
                         </div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         {expired ? (
                           <span className="status-pill bg-[#EF4444]/10 text-[#EF4444]">Expired</span>
                         ) : promo.aktif ? (

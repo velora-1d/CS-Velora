@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
   MessageCircle,
-  Search,
   Loader2,
   User,
   Bot,
@@ -95,7 +94,7 @@ export default function ChatsPage() {
 
       <div className="glass-card p-5 md:p-6">
         <div className="relative">
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nomor atau nama..." className="app-input pl-4" />
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nomor atau nama..." className="app-input" />
         </div>
       </div>
 

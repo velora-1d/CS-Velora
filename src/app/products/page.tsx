@@ -5,13 +5,13 @@ import { toast } from "sonner";
 import {
   Package,
   Plus,
-  Search,
   Edit,
   Trash2,
   ToggleLeft,
   ToggleRight,
   Boxes,
   Link2,
+  Loader2,
 } from "lucide-react";
 
 type ProductType = "fisik" | "digital" | "jasa" | "konsultasi";
@@ -278,7 +278,7 @@ export default function ProductsPage() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Cari produk, layanan, atau konsultasi..."
-                className="app-input pl-4"
+                className="app-input"
               />
             </div>
             <select
@@ -315,16 +315,16 @@ export default function ProductsPage() {
           </span>
         </div>
 
-        <div className="overflow-x-auto px-3 py-3">
+        <div className="overflow-x-auto custom-scrollbar px-3 py-3">
           <table className="table-shell min-w-full">
             <thead>
-              <tr>
-                <th className="px-4 py-3 text-left">Produk</th>
-                <th className="px-4 py-3 text-left">Tipe</th>
-                <th className="px-4 py-3 text-left">Harga</th>
-                <th className="px-4 py-3 text-left">Stok</th>
-                <th className="px-4 py-3 text-left">Status</th>
-                <th className="px-4 py-3 text-right">Aksi</th>
+              <tr className="border-b border-[rgba(255,255,255,0.08)]">
+                <th className="px-4 py-3 text-left whitespace-nowrap">Produk</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Tipe</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Harga</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Stok</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Status</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap">Aksi</th>
               </tr>
             </thead>
             <tbody>
@@ -332,7 +332,7 @@ export default function ProductsPage() {
                 <tr>
                   <td colSpan={6} className="px-4 py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
-                      <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#56D6FF] border-t-transparent" />
+                      <Loader2 className="h-8 w-8 animate-spin text-[#56D6FF]" />
                       <p className="text-[#93A8C7]">Memuat katalog produk...</p>
                     </div>
                   </td>
@@ -345,8 +345,8 @@ export default function ProductsPage() {
                 </tr>
               ) : (
                 filteredProducts.map((product) => (
-                  <tr key={product.id}>
-                    <td className="px-4 py-4">
+                  <tr key={product.id} className="border-b border-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.02)] transition-colors">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-4">
                         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(255,255,255,0.05)] text-[#93A8C7]">
                           <Package className="h-5 w-5" />
@@ -359,33 +359,33 @@ export default function ProductsPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <span className={`status-pill ${tipeColors[product.tipe]}`}>
                         {tipeLabels[product.tipe]}
                       </span>
                     </td>
-                    <td className="px-4 py-4 text-[#F1F5F9]">
+                    <td className="px-4 py-4 text-[#F1F5F9] whitespace-nowrap">
                       <div className="flex flex-col">
-                        <span>Rp {product.harga.toLocaleString("id-ID")}</span>
+                        <span className="font-semibold">Rp {product.harga.toLocaleString("id-ID")}</span>
                         {product.hargaCoret && (
-                          <span className="text-xs text-[#69809F] line-through">
+                          <span className="text-[10px] text-[#69809F] line-through opacity-70">
                             Rp {product.hargaCoret.toLocaleString("id-ID")}
                           </span>
                         )}
                         {product.diskonPersen && (
                           <span className="text-[10px] text-[#4ADE80] font-bold">
-                            Diskon {product.diskonPersen}%
+                            -{product.diskonPersen}%
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-[#93A8C7]">
-                      {product.stok !== null ? product.stok : "Unlimited"}
+                    <td className="px-4 py-4 text-[#93A8C7] whitespace-nowrap">
+                      <span className="text-xs font-mono">{product.stok !== null ? product.stok : "∞"}</span>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <button
                         onClick={() => handleToggle(product.id)}
-                        className={`inline-flex items-center gap-2 ${
+                        className={`inline-flex items-center gap-2 transition-colors ${
                           product.aktif ? "text-[#4ADE80]" : "text-[#69809F]"
                         }`}
                       >
@@ -394,8 +394,8 @@ export default function ProductsPage() {
                         ) : (
                           <ToggleLeft className="h-5 w-5" />
                         )}
-                        <span className="text-sm font-medium">
-                          {product.aktif ? "Aktif" : "Nonaktif"}
+                        <span className="text-[10px] font-bold uppercase tracking-wider">
+                          {product.aktif ? "Aktif" : "Off"}
                         </span>
                       </button>
                     </td>
@@ -403,13 +403,13 @@ export default function ProductsPage() {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => handleOpenDrawer(product)}
-                          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[rgba(138,180,248,0.12)] text-[#93A8C7] transition-colors hover:bg-[rgba(255,255,255,0.05)] hover:text-[#F1F5F9]"
+                          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[rgba(138,180,248,0.12)] text-[#93A8C7] transition-all hover:bg-[rgba(255,255,255,0.05)] hover:text-[#F1F5F9] hover:scale-105"
                         >
                           <Edit className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(product.id)}
-                          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[rgba(255,107,122,0.12)] text-[#93A8C7] transition-colors hover:bg-[rgba(255,107,122,0.08)] hover:text-[#FF9DA7]"
+                          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[rgba(255,107,122,0.12)] text-[#93A8C7] transition-all hover:bg-[rgba(255,107,122,0.08)] hover:text-[#FF9DA7] hover:scale-105"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>

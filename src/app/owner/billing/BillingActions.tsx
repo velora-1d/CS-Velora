@@ -16,8 +16,14 @@ interface Subscription {
 
 export default function BillingActions({ subs }: { subs: Subscription[] }) {
   const [items, setItems] = useState(subs);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  const filteredItems = items.filter((item) => 
+    item.tenant?.namaToko.toLowerCase().includes(search.toLowerCase()) ||
+    item.paket.toLowerCase().includes(search.toLowerCase())
+  );
 
   function showToast(msg: string, ok: boolean) {
     setToast({ msg, ok });
@@ -65,6 +71,22 @@ export default function BillingActions({ subs }: { subs: Subscription[] }) {
         </div>
       )}
 
+      <div className="p-6 border-b border-[rgba(255,255,255,0.05)] flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <h2 className="text-sm font-medium text-[#F1F5F9] flex items-center gap-2">
+          <Clock className="h-4 w-4 text-[#FFBF69]" />
+          Antrean Persetujuan
+        </h2>
+        <div className="relative w-full sm:w-64">
+          <input
+            type="text"
+            placeholder="Cari tenant atau paket..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-4 pr-4 py-2 bg-[#0A0F1E] border border-[rgba(255,255,255,0.08)] rounded-xl text-[#F1F5F9] focus:outline-none focus:border-[#56D6FF] focus:ring-1 focus:ring-[#56D6FF]/50 text-sm transition-all"
+          />
+        </div>
+      </div>
+
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-[#94A3B8]">
           <thead className="text-xs text-[#94A3B8] uppercase bg-[rgba(255,255,255,0.02)] border-b border-[rgba(255,255,255,0.05)]">
@@ -77,17 +99,17 @@ export default function BillingActions({ subs }: { subs: Subscription[] }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-[rgba(255,255,255,0.05)]">
-            {items.length === 0 ? (
+            {filteredItems.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-6 py-12 text-center">
-                  <div className="flex flex-col items-center gap-2 text-[#4ADE80]">
-                    <CheckCircle className="h-10 w-10 opacity-60" />
-                    <p className="text-sm">Tidak ada tagihan yang menunggu konfirmasi.</p>
+                  <div className="flex flex-col items-center gap-2 text-[#94A3B8]">
+                    <Clock className="h-10 w-10 opacity-20" />
+                    <p className="text-sm">Tidak ada tagihan yang cocok.</p>
                   </div>
                 </td>
               </tr>
             ) : (
-              items.map((sub) => (
+              filteredItems.map((sub) => (
                 <tr key={sub.id} className="hover:bg-[rgba(255,255,255,0.02)] transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="inline-flex items-center gap-1.5 text-[#93A8C7]">
