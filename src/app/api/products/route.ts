@@ -34,12 +34,25 @@ export async function POST(req: Request) {
     const tenantId = session.user.tenantId;
     const body = await req.json();
 
+    // Validasi input wajib
+    const VALID_TIPE = ["fisik", "digital", "jasa", "bundel"];
+    if (!body.nama?.trim()) {
+      return NextResponse.json({ error: "Nama produk wajib diisi" }, { status: 400 });
+    }
+    if (!VALID_TIPE.includes(body.tipe)) {
+      return NextResponse.json({ error: `Tipe harus salah satu: ${VALID_TIPE.join(", ")}` }, { status: 400 });
+    }
+    const harga = Number(body.harga);
+    if (isNaN(harga) || harga < 0) {
+      return NextResponse.json({ error: "Harga tidak valid" }, { status: 400 });
+    }
+
     const newProduct = await db.insert(products).values({
       tenantId,
-      nama: body.nama,
+      nama: body.nama.trim(),
       tipe: body.tipe,
-      harga: Number(body.harga),
-      deskripsi: body.deskripsi || null,
+      harga,
+      deskripsi: body.deskripsi?.trim() || null,
       stok: body.stok ? parseInt(body.stok, 10) : null,
       durasi: body.durasi || null,
       linkShopee: body.linkShopee || null,

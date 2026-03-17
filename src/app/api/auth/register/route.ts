@@ -4,9 +4,20 @@ import { tenants, users } from "@/db/schema";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { sendTelegramNotification } from "@/lib/telegram";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   try {
+    // Rate limit: max 5 registrasi per 15 menit per IP
+    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    const rl = rateLimit(`register:${ip}`, 5);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Terlalu banyak percobaan. Coba lagi dalam 15 menit." },
+        { status: 429 }
+      );
+    }
+
     const { namaToko, namaPemilik, email, password } = await req.json();
 
     if (!namaToko || !namaPemilik || !email || !password) {
@@ -16,9 +27,18 @@ export async function POST(req: Request) {
       );
     }
 
-    if (password.length < 6) {
+    // Validasi format email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
       return NextResponse.json(
-        { error: "Password minimal 6 karakter" },
+        { error: "Format email tidak valid" },
+        { status: 400 }
+      );
+    }
+
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: "Password minimal 8 karakter" },
         { status: 400 }
       );
     }

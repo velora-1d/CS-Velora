@@ -50,6 +50,12 @@ export async function POST(req: Request) {
 
       const validationData = await validationRes.json();
       
+      // 🔴 SECURITY: Harus verifikasi response Pakasir sebelum update DB
+      if (!validationData?.success) {
+        console.error("Pakasir validation failed for SUB:", order_id, validationData);
+        return NextResponse.json({ error: "Pembayaran tidak terverifikasi" }, { status: 400 });
+      }
+      
       // Update subscription
       await db.update(subscriptions)
         .set({ status: "active", confirmedAt: new Date() })
@@ -113,6 +119,12 @@ export async function POST(req: Request) {
       });
 
       const validationData = await validationRes.json();
+      
+      // 🔴 SECURITY: Harus verifikasi response Pakasir sebelum update DB
+      if (!validationData?.success) {
+        console.error("Pakasir validation failed for ORD:", order_id, validationData);
+        return NextResponse.json({ error: "Pembayaran tidak terverifikasi" }, { status: 400 });
+      }
       
       // Update order status
       await db.update(orders)

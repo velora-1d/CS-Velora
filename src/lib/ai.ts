@@ -2,6 +2,10 @@ import { db } from "@/lib/db";
 import { products, faqs, promos, aiSettings, tenants, paymentMethods, orders, consultationSlots } from "@/db/schema";
 import { eq, and, asc, gte, desc } from "drizzle-orm";
 
+// In-memory cache untuk context bot per tenant (TTL 5 menit)
+const contextCache = new Map<string, { data: Awaited<ReturnType<typeof _getBotContextRaw>>; expiresAt: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 menit
+
 export async function getAiCompletion(
   tenantId: string, 
   userMessage: string, 
@@ -175,6 +179,36 @@ ATURAN KOMUNIKASI:
 }
 
 async function getBotContext(tenantId: string, fromNumber?: string) {
+  // fromNumber bersifat personal, jadi tidak ikut di-cache
+  const cacheKey = tenantId;
+  const cached = contextCache.get(cacheKey);
+  const now = Date.now();
+
+  if (cached && cached.expiresAt > now) {
+    // Inject order history secara real-time (tidak di-cache karena per-user)
+    const history = fromNumber ? await getOrderHistory(tenantId, fromNumber) : "";
+    return { ...cached.data, orderHistory: history };
+  }
+
+  const fresh = await _getBotContextRaw(tenantId);
+  contextCache.set(cacheKey, { data: fresh, expiresAt: now + CACHE_TTL_MS });
+
+  const history = fromNumber ? await getOrderHistory(tenantId, fromNumber) : "";
+  return { ...fresh, orderHistory: history };
+}
+
+async function getOrderHistory(tenantId: string, fromNumber: string) {
+  const userOrders = await db.query.orders.findMany({
+    where: and(eq(orders.tenantId, tenantId), eq(orders.fromNumber, fromNumber)),
+    orderBy: [desc(orders.createdAt)],
+    limit: 5,
+  });
+  return userOrders.length > 0
+    ? userOrders.map(o => `- Order #${o.id.substring(0, 8)} | Status: ${o.status} | Total: Rp ${o.totalHarga.toLocaleString("id-ID")} | Tanggal: ${new Date(o.createdAt).toLocaleDateString("id-ID")}`).join("\n")
+    : "";
+}
+
+async function _getBotContextRaw(tenantId: string) {
   const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
   const [tenant, allProducts, allFaqs, allPromos, allPayments, availableSlots] = await Promise.all([
@@ -185,7 +219,7 @@ async function getBotContext(tenantId: string, fromNumber?: string) {
       where: and(
         eq(promos.tenantId, tenantId), 
         eq(promos.aktif, true),
-        gte(promos.tanggalBerakhir, today) // Filter expired promos
+        gte(promos.tanggalBerakhir, today)
       ) 
     }),
     db.query.paymentMethods.findMany({ where: and(eq(paymentMethods.tenantId, tenantId), eq(paymentMethods.aktif, true)), orderBy: [asc(paymentMethods.urutan)] }),
@@ -199,16 +233,6 @@ async function getBotContext(tenantId: string, fromNumber?: string) {
       limit: 10,
     }),
   ]);
-
-  // Fetch order history for the specific user if fromNumber is provided
-  let userOrders: typeof orders.$inferSelect[] = [];
-  if (fromNumber) {
-    userOrders = await db.query.orders.findMany({
-      where: and(eq(orders.tenantId, tenantId), eq(orders.fromNumber, fromNumber)),
-      orderBy: [desc(orders.createdAt)],
-      limit: 5,
-    });
-  }
 
   const profileContext = tenant ? `Toko: ${tenant.namaToko}\nDeskripsi: ${tenant.deskripsi || "-"}\nLink Shopee: ${tenant.linkShopee || "-"}\nLink TikTok: ${tenant.linkTiktok || "-"}` : "Info toko tidak tersedia.";
 
@@ -235,10 +259,6 @@ async function getBotContext(tenantId: string, fromNumber?: string) {
     `- ${s.tanggal} | ${s.jamMulai} - ${s.jamSelesai}`
   ).join("\n");
 
-  const orderHistoryContext = userOrders.length > 0
-    ? userOrders.map(o => `- Order #${o.id.substring(0, 8)} | Status: ${o.status} | Total: Rp ${o.totalHarga.toLocaleString("id-ID")} | Tanggal: ${new Date(o.createdAt).toLocaleDateString("id-ID")}`).join("\n")
-    : "";
-
   return {
     tenant,
     profile: profileContext,
@@ -247,7 +267,6 @@ async function getBotContext(tenantId: string, fromNumber?: string) {
     promos: promosContext || "Tidak ada promo saat ini.",
     payments: paymentsContext || "Metode pembayaran akan diinfokan oleh admin.",
     slots: slotsContext || "Tidak ada slot konsultasi tersedia saat ini.",
-    orderHistory: orderHistoryContext || "",
   };
 }
 
