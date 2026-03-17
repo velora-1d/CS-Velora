@@ -32,9 +32,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen">
       <Sidebar />
       <main className="min-h-screen md:ml-64">
-        <div className="mx-auto max-w-[1600px] px-4 py-5 md:px-6 md:py-7">
-          {children}
-        </div>
+        {children}
       </main>
     </div>
   );

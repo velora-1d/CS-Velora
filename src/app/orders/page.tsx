@@ -63,12 +63,13 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <section className="hero-panel px-6 py-7 md:px-8">
         <h1 className="text-2xl font-bold text-[#F1F5F9]">Orders</h1>
         <p className="text-[#94A3B8] text-sm mt-1">Kelola pesanan dan konfirmasi pembayaran</p>
-      </div>
-      
-      <div className="flex gap-2">
+      </section>
+
+      <div className="px-6 md:px-8 space-y-4">
+        <div className="flex gap-2 flex-wrap">
         {["all", "pending", "konfirmasi", "proses", "selesai", "batal"].map(s => (
           <button key={s} onClick={() => setFilter(s)} className={`px-3 py-1.5 rounded-lg text-sm ${filter === s ? "bg-[#3B82F6] text-white" : "bg-[rgba(255,255,255,0.05)] text-[#94A3B8] hover:text-white"}`}>
             {s === "all" ? "Semua" : s.charAt(0).toUpperCase() + s.slice(1)}
@@ -151,6 +152,7 @@ export default function OrdersPage() {
             )}
           </tbody>
         </table>
+      </div>
       </div>
     </div>
   );
