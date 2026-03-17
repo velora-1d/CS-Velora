@@ -21,6 +21,8 @@ type ProductItem = {
   nama: string;
   tipe: ProductType;
   harga: number;
+  hargaCoret: number | null;
+  diskonPersen: number | null;
   aktif: boolean;
   stok: number | null;
 };
@@ -29,6 +31,8 @@ type ProductForm = {
   nama: string;
   tipe: ProductType;
   harga: string;
+  hargaCoret: string;
+  diskonPersen: string;
   deskripsi: string;
   stok: string;
   durasi: string;
@@ -43,6 +47,8 @@ const initialFormData: ProductForm = {
   nama: "",
   tipe: "fisik",
   harga: "",
+  hargaCoret: "",
+  diskonPersen: "",
   deskripsi: "",
   stok: "",
   durasi: "",
@@ -113,6 +119,8 @@ export default function ProductsPage() {
         nama: product.nama,
         tipe: product.tipe,
         harga: product.harga.toString(),
+        hargaCoret: product.hargaCoret?.toString() || "",
+        diskonPersen: product.diskonPersen?.toString() || "",
         deskripsi: "",
         stok: product.stok?.toString() || "",
         durasi: "",
@@ -265,13 +273,12 @@ export default function ProductsPage() {
           </div>
           <div className="flex flex-col gap-3 md:flex-row">
             <div className="relative min-w-[260px]">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#69809F]" />
               <input
                 type="text"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Cari produk, layanan, atau konsultasi..."
-                className="app-input pl-12"
+                className="app-input pl-4"
               />
             </div>
             <select
@@ -358,7 +365,19 @@ export default function ProductsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-4 text-[#F1F5F9]">
-                      Rp {product.harga.toLocaleString("id-ID")}
+                      <div className="flex flex-col">
+                        <span>Rp {product.harga.toLocaleString("id-ID")}</span>
+                        {product.hargaCoret && (
+                          <span className="text-xs text-[#69809F] line-through">
+                            Rp {product.hargaCoret.toLocaleString("id-ID")}
+                          </span>
+                        )}
+                        {product.diskonPersen && (
+                          <span className="text-[10px] text-[#4ADE80] font-bold">
+                            Diskon {product.diskonPersen}%
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-4 text-[#93A8C7]">
                       {product.stok !== null ? product.stok : "Unlimited"}
@@ -472,16 +491,43 @@ export default function ProductsPage() {
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-2 block text-sm text-[#93A8C7]">Harga Promo *</label>
+                  <input
+                    type="number"
+                    value={formData.harga}
+                    onChange={(event) =>
+                      setFormData((current) => ({ ...current, harga: event.target.value }))
+                    }
+                    className="app-input"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm text-[#93A8C7]">Harga Coret</label>
+                  <input
+                    type="number"
+                    value={formData.hargaCoret}
+                    onChange={(event) =>
+                      setFormData((current) => ({ ...current, hargaCoret: event.target.value }))
+                    }
+                    className="app-input"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="mb-2 block text-sm text-[#93A8C7]">Harga (Rupiah) *</label>
+                <label className="mb-2 block text-sm text-[#93A8C7]">Diskon (%)</label>
                 <input
                   type="number"
-                  value={formData.harga}
+                  value={formData.diskonPersen}
                   onChange={(event) =>
-                    setFormData((current) => ({ ...current, harga: event.target.value }))
+                    setFormData((current) => ({ ...current, diskonPersen: event.target.value }))
                   }
                   className="app-input"
-                  placeholder="0"
+                  placeholder="Contoh: 10"
                 />
               </div>
 

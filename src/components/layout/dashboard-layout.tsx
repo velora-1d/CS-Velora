@@ -29,9 +29,9 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-[#0A0F1E]">
       <Sidebar />
-      <main className="min-h-screen md:ml-64">
+      <main className="min-h-screen md:ml-64 p-8">
         {children}
       </main>
     </div>

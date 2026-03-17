@@ -172,13 +172,12 @@ export default function FaqsPage() {
       <div className="glass-card p-5 md:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="relative min-w-[260px]">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#69809F]" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Cari FAQ..."
-              className="app-input pl-12"
+              className="app-input pl-4"
             />
           </div>
           <button onClick={() => handleOpenDrawer()} className="app-button-primary whitespace-nowrap">

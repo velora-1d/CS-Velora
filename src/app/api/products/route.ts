@@ -52,6 +52,8 @@ export async function POST(req: Request) {
       nama: body.nama.trim(),
       tipe: body.tipe,
       harga,
+      hargaCoret: body.hargaCoret ? parseInt(body.hargaCoret, 10) : null,
+      diskonPersen: body.diskonPersen ? parseInt(body.diskonPersen, 10) : null,
       deskripsi: body.deskripsi?.trim() || null,
       stok: body.stok ? parseInt(body.stok, 10) : null,
       durasi: body.durasi || null,

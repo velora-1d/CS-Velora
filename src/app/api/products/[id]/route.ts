@@ -22,6 +22,8 @@ export async function PUT(
       nama: body.nama,
       tipe: body.tipe,
       harga: Number(body.harga),
+      hargaCoret: body.hargaCoret ? parseInt(body.hargaCoret, 10) : null,
+      diskonPersen: body.diskonPersen ? parseInt(body.diskonPersen, 10) : null,
       deskripsi: body.deskripsi || null,
       stok: body.stok ? parseInt(body.stok, 10) : null,
       durasi: body.durasi || null,

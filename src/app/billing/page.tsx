@@ -25,10 +25,15 @@ export default async function BillingPage() {
   // Jika owner test akses
   const tenantId = session.user.tenantId || "owner-bypass";
 
-  // Ambil data tenant
-  const tenantData = await db.query.tenants.findFirst({
-    where: eq(tenants.id, tenantId),
-  });
+  // Cek apakah tenantId adalah UUID yang valid (v4)
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantId);
+  
+  let tenantData = null;
+  if (isUuid) {
+    tenantData = await db.query.tenants.findFirst({
+      where: eq(tenants.id, tenantId),
+    });
+  }
 
   if (!tenantData && session.user.role !== "owner") {
     redirect("/login");

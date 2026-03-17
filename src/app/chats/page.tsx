@@ -95,8 +95,7 @@ export default function ChatsPage() {
 
       <div className="glass-card p-5 md:p-6">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#69809F]" />
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nomor atau nama..." className="app-input pl-12" />
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nomor atau nama..." className="app-input pl-4" />
         </div>
       </div>
 

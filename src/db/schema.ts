@@ -10,6 +10,7 @@ import {
   time,
   pgEnum,
 } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 
 // Enums
 export const waProviderEnum = pgEnum("wa_provider", ["waha", "fonnte"]);
@@ -24,6 +25,9 @@ export const bahasaEnum = pgEnum("bahasa", ["id", "en"]);
 export const tenantStatusEnum = pgEnum("tenant_status", ["trial", "active", "suspended", "expired"]);
 export const subscriptionStatusEnum = pgEnum("subscription_status", ["pending", "active", "expired", "rejected"]);
 export const announcementPriorityEnum = pgEnum("announcement_priority", ["low", "medium", "high"]);
+export const promoTypeEnum = pgEnum("promo_type", ["produk", "voucher"]);
+export const diskonTypeEnum = pgEnum("diskon_type", ["persen", "nominal"]);
+export const promoTargetTypeEnum = pgEnum("promo_target_type", ["all", "pilihan"]);
 
 // Tenants table
 export const tenants = pgTable("tenants", {
@@ -79,6 +83,8 @@ export const products = pgTable("products", {
   nama: varchar("nama", { length: 255 }).notNull(),
   tipe: productTypeEnum("tipe").notNull(),
   harga: integer("harga").notNull(),
+  hargaCoret: integer("harga_coret"),
+  diskonPersen: integer("diskon_persen"),
   deskripsi: text("deskripsi"),
   stok: integer("stok"),
   durasi: varchar("durasi", { length: 100 }),
@@ -95,10 +101,24 @@ export const promos = pgTable("promos", {
   tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
   judul: varchar("judul", { length: 255 }).notNull(),
   deskripsi: text("deskripsi").notNull(),
+  tipe: promoTypeEnum("tipe").notNull().default("produk"),
+  kodeVoucher: varchar("kode_voucher", { length: 50 }),
+  diskonTipe: diskonTypeEnum("diskon_tipe").notNull().default("persen"),
+  diskonValue: integer("diskon_value").notNull().default(0),
+  minPembelian: integer("min_pembelian").default(0),
+  maxPotongan: integer("max_potongan"),
+  targetTipe: promoTargetTypeEnum("target_tipe").notNull().default("all"),
   tanggalMulai: date("tanggal_mulai").notNull(),
   tanggalBerakhir: date("tanggal_berakhir").notNull(),
   aktif: boolean("aktif").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Junction table for promos and products
+export const promoProducts = pgTable("promo_products", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  promoId: uuid("promo_id").references(() => promos.id, { onDelete: 'cascade' }).notNull(),
+  productId: uuid("product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(),
 });
 
 // Payment methods table
@@ -262,6 +282,8 @@ export type Product = typeof products.$inferSelect;
 export type NewProduct = typeof products.$inferInsert;
 export type Promo = typeof promos.$inferSelect;
 export type NewPromo = typeof promos.$inferInsert;
+export type PromoProduct = typeof promoProducts.$inferSelect;
+export type NewPromoProduct = typeof promoProducts.$inferInsert;
 export type PaymentMethod = typeof paymentMethods.$inferSelect;
 export type NewPaymentMethod = typeof paymentMethods.$inferInsert;
 export type Faq = typeof faqs.$inferSelect;
@@ -286,3 +308,19 @@ export type AnnouncementTarget = typeof announcementTargets.$inferSelect;
 export type NewAnnouncementTarget = typeof announcementTargets.$inferInsert;
 export type OwnerPaymentInfo = typeof ownerPaymentInfo.$inferSelect;
 export type NewOwnerPaymentInfo = typeof ownerPaymentInfo.$inferInsert;
+
+// Relations
+export const promosRelations = relations(promos, ({ many }) => ({
+  promoProducts: many(promoProducts),
+}));
+
+export const promoProductsRelations = relations(promoProducts, ({ one }) => ({
+  promo: one(promos, {
+    fields: [promoProducts.promoId],
+    references: [promos.id],
+  }),
+  product: one(products, {
+    fields: [promoProducts.productId],
+    references: [products.id],
+  }),
+}));

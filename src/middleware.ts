@@ -34,11 +34,6 @@ export default auth((req) => {
     if (isOwnerRoute && role !== "owner") {
        return NextResponse.redirect(new URL("/dashboard", req.nextUrl));
     }
-
-    // Protect tenant routes
-    if (isTenantRoute && role === "owner") {
-      return NextResponse.redirect(new URL("/owner/dashboard", req.nextUrl));
-    }
   }
 
   return NextResponse.next();

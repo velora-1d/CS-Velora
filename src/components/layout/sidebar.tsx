@@ -49,6 +49,17 @@ export function Sidebar() {
   const { data: session } = useSession();
   const [collapsed, setCollapsed] = useState(false);
 
+  const navRef = useState<HTMLDivElement | null>(null);
+
+  useState(() => {
+    if (typeof window !== "undefined") {
+      const savedScroll = sessionStorage.getItem("sidebar-scroll");
+      if (savedScroll && navRef) {
+        // We'll use a better approach with refs
+      }
+    }
+  });
+
   return (
     <aside
       className={cn(
@@ -106,33 +117,54 @@ export function Sidebar() {
         </div>
       )}
 
-      <nav className="flex-1 overflow-y-auto px-2 py-4">
+      <nav 
+        className="flex-1 overflow-y-auto px-2 py-4"
+        onScroll={(e) => {
+          sessionStorage.setItem("sidebar-scroll", e.currentTarget.scrollTop.toString());
+        }}
+        ref={(el) => {
+          if (el) {
+            const saved = sessionStorage.getItem("sidebar-scroll");
+            if (saved) el.scrollTop = parseInt(saved);
+          }
+        }}
+      >
         <ul className="space-y-1">
           {menuItems.map((item) => {
             const isActive = pathname === item.href ||
               (item.href !== "/dashboard" && pathname.startsWith(item.href));
             return (
-              <li key={item.href}>
+              <li key={item.href} className="relative px-2">
+                {isActive && (
+                  <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-[#56D6FF] shadow-[0_0_12px_#56D6FF]" />
+                )}
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 rounded-2xl px-3 py-3 transition-all duration-200",
+                    "flex items-center gap-3 rounded-2xl px-3 py-3 transition-all duration-300",
                     isActive
-                      ? "bg-[linear-gradient(135deg,rgba(86,214,255,0.18),rgba(103,167,255,0.08))] text-[#F1F5F9] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                      ? "bg-[linear-gradient(135deg,rgba(86,214,255,0.22),rgba(103,167,255,0.12))] text-[#F1F5F9] shadow-[inset_0_1px_1px_rgba(255,255,255,0.12),0_10px_20px_-10px_rgba(86,214,255,0.3)]"
                       : "text-[#94A3B8] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#F1F5F9]"
                   )}
                 >
                   <span
                     className={cn(
-                      "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl",
+                      "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl transition-all duration-300",
                       isActive
-                        ? "bg-[rgba(255,255,255,0.08)] text-[#56D6FF]"
+                        ? "bg-[#56D6FF] text-[#04101c] shadow-[0_0_15px_rgba(86,214,255,0.4)]"
                         : "bg-[rgba(255,255,255,0.04)]"
                     )}
                   >
-                    <item.icon className="h-5 w-5" />
+                    <item.icon className={cn("h-5 w-5", isActive && "animate-pulse")} />
                   </span>
-                  {!collapsed && <span className="text-sm">{item.label}</span>}
+                  {!collapsed && (
+                    <span className={cn(
+                      "text-sm font-medium transition-colors",
+                      isActive ? "text-[#F1F5F9]" : "text-[#94A3B8]"
+                    )}>
+                      {item.label}
+                    </span>
+                  )}
                 </Link>
               </li>
             );

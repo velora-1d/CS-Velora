@@ -20,27 +20,52 @@ type PromoItem = {
   id: string;
   judul: string;
   deskripsi: string;
+  tipe: "produk" | "voucher";
+  kodeVoucher: string | null;
+  diskonTipe: "persen" | "nominal";
+  diskonValue: number;
+  minPembelian: number | null;
+  maxPotongan: number | null;
+  targetTipe: "all" | "pilihan";
   tanggalMulai: string;
   tanggalBerakhir: string;
   aktif: boolean;
+  selectedProducts?: string[];
 };
 
 type PromoForm = {
   judul: string;
   deskripsi: string;
+  tipe: "produk" | "voucher";
+  kodeVoucher: string;
+  diskonTipe: "persen" | "nominal";
+  diskonValue: string;
+  minPembelian: string;
+  maxPotongan: string;
+  targetTipe: "all" | "pilihan";
   tanggalMulai: string;
   tanggalBerakhir: string;
+  selectedProducts: string[];
 };
 
 const initialFormData: PromoForm = {
   judul: "",
   deskripsi: "",
+  tipe: "produk",
+  kodeVoucher: "",
+  diskonTipe: "persen",
+  diskonValue: "",
+  minPembelian: "",
+  maxPotongan: "",
+  targetTipe: "all",
   tanggalMulai: format(new Date(), "yyyy-MM-dd"),
   tanggalBerakhir: "",
+  selectedProducts: [],
 };
 
 export default function PromosPage() {
   const [promos, setPromos] = useState<PromoItem[]>([]);
+  const [products, setProducts] = useState<{ id: string; nama: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "aktif" | "nonaktif">("all");
@@ -51,7 +76,18 @@ export default function PromosPage() {
 
   useEffect(() => {
     fetchPromos();
+    fetchProducts();
   }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const res = await fetch("/api/products");
+      const data = await res.json();
+      if (res.ok) setProducts(data);
+    } catch (e) {
+      console.error("Gagal memuat produk", e);
+    }
+  };
 
   const fetchPromos = async () => {
     try {
@@ -89,8 +125,16 @@ export default function PromosPage() {
       setFormData({
         judul: promo.judul,
         deskripsi: promo.deskripsi,
+        tipe: promo.tipe,
+        kodeVoucher: promo.kodeVoucher || "",
+        diskonTipe: promo.diskonTipe,
+        diskonValue: promo.diskonValue.toString(),
+        minPembelian: promo.minPembelian?.toString() || "",
+        maxPotongan: promo.maxPotongan?.toString() || "",
+        targetTipe: promo.targetTipe,
         tanggalMulai: promo.tanggalMulai,
         tanggalBerakhir: promo.tanggalBerakhir,
+        selectedProducts: promo.selectedProducts || [],
       });
     } else {
       setEditingPromo(null);
@@ -205,8 +249,7 @@ export default function PromosPage() {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-3 md:flex-row">
             <div className="relative min-w-[260px]">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#69809F]" />
-              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari promo..." className="app-input pl-12" />
+              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari promo..." className="app-input pl-4" />
             </div>
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as "all" | "aktif" | "nonaktif")} className="app-select min-w-[160px]">
               <option value="all">Semua Status</option>
@@ -232,8 +275,9 @@ export default function PromosPage() {
           <table className="table-shell min-w-full">
             <thead>
               <tr>
-                <th className="px-4 py-3 text-left">Judul</th>
-                <th className="px-4 py-3 text-left">Deskripsi</th>
+                <th className="px-4 py-3 text-left">Promo</th>
+                <th className="px-4 py-3 text-left">Value</th>
+                <th className="px-4 py-3 text-left">Target</th>
                 <th className="px-4 py-3 text-left">Periode</th>
                 <th className="px-4 py-3 text-left">Status</th>
                 <th className="px-4 py-3 text-right">Aksi</th>
@@ -262,16 +306,35 @@ export default function PromosPage() {
                     <tr key={promo.id}>
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-4">
-                          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(255,255,255,0.05)] text-[#FFBF69]">
+                          <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(255,255,255,0.05)] ${promo.tipe === 'voucher' ? 'text-[#A78BFA]' : 'text-[#FFBF69]'}`}>
                             <Megaphone className="h-5 w-5" />
                           </div>
-                          <p className="font-medium text-[#F1F5F9]">{promo.judul}</p>
+                          <div>
+                            <p className="font-medium text-[#F1F5F9]">{promo.judul}</p>
+                            {promo.kodeVoucher && (
+                              <p className="text-[10px] font-mono text-[#56D6FF] uppercase tracking-wider">
+                                Kode: {promo.kodeVoucher}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-[#93A8C7] max-w-[200px] truncate">{promo.deskripsi}</td>
-                      <td className="px-4 py-4 text-sm text-[#93A8C7]">
+                      <td className="px-4 py-4">
+                        <div className="text-sm font-semibold text-[#F1F5F9]">
+                          {promo.diskonTipe === 'persen' ? `${promo.diskonValue}%` : `Rp ${promo.diskonValue.toLocaleString('id-ID')}`}
+                        </div>
+                        <div className="text-[10px] text-[#93A8C7]">
+                          Min: Rp {promo.minPembelian?.toLocaleString('id-ID') || 0}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${promo.targetTipe === 'all' ? 'bg-blue-500/10 text-blue-400' : 'bg-purple-500/10 text-purple-400'}`}>
+                          {promo.targetTipe === 'all' ? 'Semua Produk' : 'Pilihan'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-xs text-[#93A8C7]">
                         <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4" />
+                          <Calendar className="h-3 w-3" />
                           {formatDate(promo.tanggalMulai)} — {formatDate(promo.tanggalBerakhir)}
                         </div>
                       </td>
@@ -321,14 +384,92 @@ export default function PromosPage() {
               </div>
             </div>
             <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">
-              <div>
-                <label className="mb-2 block text-sm text-[#93A8C7]">Judul Promo *</label>
-                <input type="text" value={formData.judul} onChange={(e) => setFormData((c) => ({ ...c, judul: e.target.value }))} className="app-input" placeholder="Contoh: Diskon 20% Semua Produk" />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-2 block text-sm text-[#93A8C7]">Tipe Promo *</label>
+                  <select 
+                    value={formData.tipe} 
+                    onChange={(e) => setFormData((c) => ({ ...c, tipe: e.target.value as any }))}
+                    className="app-select w-full"
+                  >
+                    <option value="produk">Promo Produk</option>
+                    <option value="voucher">Voucher / Kode Promo</option>
+                  </select>
+                </div>
+                {formData.tipe === 'voucher' && (
+                  <div>
+                    <label className="mb-2 block text-sm text-[#93A8C7]">Kode Voucher *</label>
+                    <input 
+                      type="text" 
+                      value={formData.kodeVoucher} 
+                      onChange={(e) => setFormData((c) => ({ ...c, kodeVoucher: e.target.value.toUpperCase() }))} 
+                      className="app-input uppercase font-mono" 
+                      placeholder="CONTOH: HEMAT20" 
+                    />
+                  </div>
+                )}
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-2 block text-sm text-[#93A8C7]">Jenis Diskon *</label>
+                  <select 
+                    value={formData.diskonTipe} 
+                    onChange={(e) => setFormData((c) => ({ ...c, diskonTipe: e.target.value as any }))}
+                    className="app-select w-full"
+                  >
+                    <option value="persen">Persentase (%)</option>
+                    <option value="nominal">Nominal (Rp)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm text-[#93A8C7]">Nilai Diskon *</label>
+                  <input 
+                    type="number" 
+                    value={formData.diskonValue} 
+                    onChange={(e) => setFormData((c) => ({ ...c, diskonValue: e.target.value }))} 
+                    className="app-input" 
+                    placeholder="0" 
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-2 block text-sm text-[#93A8C7]">Min. Pembelian</label>
+                  <input 
+                    type="number" 
+                    value={formData.minPembelian} 
+                    onChange={(e) => setFormData((c) => ({ ...c, minPembelian: e.target.value }))} 
+                    className="app-input" 
+                    placeholder="0" 
+                  />
+                </div>
+                {formData.diskonTipe === 'persen' && (
+                  <div>
+                    <label className="mb-2 block text-sm text-[#93A8C7]">Maks. Potongan</label>
+                    <input 
+                      type="number" 
+                      value={formData.maxPotongan} 
+                      onChange={(e) => setFormData((c) => ({ ...c, maxPotongan: e.target.value }))} 
+                      className="app-input" 
+                      placeholder="Tanpa batas" 
+                    />
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="mb-2 block text-sm text-[#93A8C7]">Deskripsi *</label>
-                <textarea value={formData.deskripsi} onChange={(e) => setFormData((c) => ({ ...c, deskripsi: e.target.value }))} className="app-input min-h-[100px] resize-none" rows={4} placeholder="Detail promo..." />
+                <textarea 
+                  value={formData.deskripsi} 
+                  onChange={(e) => setFormData((c) => ({ ...c, deskripsi: e.target.value }))} 
+                  className="app-input min-h-[80px] resize-none" 
+                  rows={3} 
+                  placeholder="Detail promo..." 
+                />
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-2 block text-sm text-[#93A8C7]">Tanggal Mulai *</label>
@@ -338,6 +479,52 @@ export default function PromosPage() {
                   <label className="mb-2 block text-sm text-[#93A8C7]">Tanggal Berakhir *</label>
                   <input type="date" value={formData.tanggalBerakhir} onChange={(e) => setFormData((c) => ({ ...c, tanggalBerakhir: e.target.value }))} className="app-input" />
                 </div>
+              </div>
+
+              <div className="border-t border-[rgba(255,255,255,0.08)] pt-5">
+                <label className="mb-4 block text-sm font-semibold text-[#F1F5F9]">Target Produk</label>
+                <div className="flex gap-4 mb-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      checked={formData.targetTipe === 'all'} 
+                      onChange={() => setFormData(c => ({ ...c, targetTipe: 'all' }))}
+                      className="accent-[#56D6FF]"
+                    />
+                    <span className="text-sm text-[#93A8C7]">Semua Produk</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      checked={formData.targetTipe === 'pilihan'} 
+                      onChange={() => setFormData(c => ({ ...c, targetTipe: 'pilihan' }))}
+                      className="accent-[#56D6FF]"
+                    />
+                    <span className="text-sm text-[#93A8C7]">Produk Tertentu</span>
+                  </label>
+                </div>
+
+                {formData.targetTipe === 'pilihan' && (
+                  <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto p-3 bg-black/20 rounded-xl border border-white/5">
+                    {products.map(p => (
+                      <label key={p.id} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg cursor-pointer">
+                        <input 
+                          type="checkbox"
+                          checked={formData.selectedProducts.includes(p.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData(c => ({ ...c, selectedProducts: [...c.selectedProducts, p.id] }));
+                            } else {
+                              setFormData(c => ({ ...c, selectedProducts: c.selectedProducts.filter(id => id !== p.id) }));
+                            }
+                          }}
+                          className="accent-[#56D6FF]"
+                        />
+                        <span className="text-sm text-[#F1F5F9]">{p.nama}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex gap-3 border-t border-[rgba(255,255,255,0.08)] px-6 py-5">
