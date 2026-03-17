@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { tenants, chatLogs, waSessions } from "@/db/schema";
-import { eq, or } from "drizzle-orm";
+import { eq, or, and } from "drizzle-orm";
 import { sendWhatsAppMessage, setWhatsAppPresence } from "@/lib/whatsapp";
 import { getAiCompletion } from "@/lib/ai";
 import { checkBotAvailability } from "@/lib/bot-logic";
@@ -10,6 +10,9 @@ import { checkBotAvailability } from "@/lib/bot-logic";
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 30; // max 30 requests per minute per number
 const RATE_WINDOW = 60 * 1000; // 1 minute
+
+// ID Tenant Owner khusus untuk Fonnte CS
+const OWNER_TENANT_ID = "be8272d9-b74f-4184-9d4b-63322b07dfef";
 
 function isRateLimited(fromNumber: string): boolean {
   const now = Date.now();
@@ -50,6 +53,7 @@ export async function POST(req: Request) {
       body: "",
       provider: "",
       identifier: "", // session for WAHA, device for Fonnte
+      name: "", // pushName or sender name
     };
 
     // 1. Parse Provider Payload
@@ -60,6 +64,7 @@ export async function POST(req: Request) {
         body: body.payload.body,
         provider: "waha",
         identifier: body.session,
+        name: body.payload.pushName || "",
       };
       // Skip if message is from the bot itself
       if (body.payload.fromMe) return NextResponse.json({ status: "skipped_from_me" });
@@ -70,6 +75,7 @@ export async function POST(req: Request) {
         body: body.message,
         provider: "fonnte",
         identifier: body.device,
+        name: body.name || "",
       };
     } else {
       return NextResponse.json({ error: "Unsupported provider payload" }, { status: 400 });
@@ -94,7 +100,9 @@ export async function POST(req: Request) {
       const waSession = await db.query.waSessions.findFirst({
         where: or(
           eq(waSessions.sessionId, messageData.identifier),
-          eq(waSessions.waNumber, messageData.identifier)
+          eq(waSessions.waNumber, messageData.identifier),
+          // Fallback: cleaning number
+          eq(waSessions.waNumber, messageData.from)
         ),
         columns: { tenantId: true },
       });
@@ -106,8 +114,24 @@ export async function POST(req: Request) {
       }
     }
 
+    // fallback mapping untuk Fonnte owner / khusus
     if (!tenant) {
-      console.error("Tenant not found for identifier:", messageData.identifier);
+      if (messageData.provider === "fonnte") {
+        console.log("Fonnte provider detected without specific mapping, routing to Owner CS.");
+        tenant = await db.query.tenants.findFirst({
+          where: eq(tenants.id, OWNER_TENANT_ID)
+        });
+      } else {
+        console.log("No tenant found, checking global mapping for identifier:", messageData.identifier);
+        // Jika identifier (device) adalah nomor WA, coba cari di tenants.waNumber
+        tenant = await db.query.tenants.findFirst({
+          where: eq(tenants.waNumber, messageData.identifier)
+        });
+      }
+    }
+
+    if (!tenant) {
+      console.error("Tenant not found for identifier:", messageData.identifier, "from:", messageData.from);
       return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
     }
 
@@ -133,9 +157,12 @@ export async function POST(req: Request) {
     try {
       // Get last 5 messages for context
       const historyLogs = await db.query.chatLogs.findMany({
-        where: eq(chatLogs.fromNumber, messageData.from),
+        where: and(
+          eq(chatLogs.tenantId, tenant.id),
+          eq(chatLogs.fromNumber, messageData.from)
+        ),
         orderBy: (chatLogs, { desc }) => [desc(chatLogs.timestamp)],
-        limit: 5,
+        limit: 20,
       });
 
       const history = historyLogs.reverse().map(log => ({
@@ -154,7 +181,7 @@ export async function POST(req: Request) {
         await setWhatsAppPresence(tenant.id, messageData.from, "typing");
       }
 
-      const aiReply = await getAiCompletion(tenant.id, messageData.body, history, undefined, messageData.from);
+      const aiReply = await getAiCompletion(tenant.id, messageData.body, history, undefined, messageData.from, messageData.name);
 
       if (aiReply) {
         // Wait delay WHILE typing indicator is showing

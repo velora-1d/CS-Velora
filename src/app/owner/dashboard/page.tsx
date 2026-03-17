@@ -45,8 +45,8 @@ export default function OwnerDashboard() {
   }
 
   const paketData = [
-    { name: "Paket Basic", value: data.paket.basic },
-    { name: "Paket Pro", value: data.paket.pro },
+    { name: "Paket Basic", value: data?.paket?.basic || 0 },
+    { name: "Paket Pro", value: data?.paket?.pro || 0 },
   ];
 
   return (

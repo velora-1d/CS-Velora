@@ -26,6 +26,7 @@ import {
   ShieldAlert,
   X,
   TrendingUp,
+  Database,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -36,6 +37,7 @@ const menuItems = [
   { href: "/promos", icon: Tag, label: "Promo" },
   { href: "/orders", icon: ShoppingCart, label: "Orders" },
   { href: "/reports", icon: TrendingUp, label: "Laporan" },
+  { href: "/dashboard/clients", icon: Database, label: "Database Client" },
   { href: "/consultations", icon: Calendar, label: "Jadwal & Konsultasi" },
   { href: "/payments", icon: CreditCard, label: "Pembayaran" },
   { href: "/billing", icon: CreditCard, label: "Langganan & Billing" },

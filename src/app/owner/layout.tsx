@@ -1,6 +1,5 @@
 "use client";
 
-import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { OwnerSidebar } from "@/components/layout/owner-sidebar";
 import { useState, useEffect } from "react";
@@ -58,7 +57,7 @@ export default function OwnerLayout({
       />
 
       {/* Main Content Areas */}
-      <main className="flex-1 overflow-x-hidden pt-20 md:pt-0 p-4 md:p-8 transition-all duration-300">
+      <main className="flex-1 overflow-x-hidden pt-20 md:pt-8 p-4 md:p-8 transition-all duration-300">
         <div className="max-w-[1600px] mx-auto">
           {children}
         </div>

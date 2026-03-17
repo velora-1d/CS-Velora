@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { products, faqs, promos, aiSettings, tenants, paymentMethods, orders, consultationSlots } from "@/db/schema";
+import { products, faqs, promos, aiSettings, tenants, paymentMethods, orders, consultationSlots, clients } from "@/db/schema";
 import { eq, and, asc, gte, desc } from "drizzle-orm";
 
 // In-memory cache untuk context bot per tenant (TTL 5 menit)
@@ -11,7 +11,8 @@ export async function getAiCompletion(
   userMessage: string, 
   history: { role: string; content: string }[] = [],
   overrides?: Partial<{ systemPrompt: string; namaAgent: string; model: string; tone: string }>,
-  fromNumber?: string
+  fromNumber?: string,
+  fromName?: string
 ) {
   const settings = await db.query.aiSettings.findFirst({
     where: eq(aiSettings.tenantId, tenantId),
@@ -29,6 +30,12 @@ export async function getAiCompletion(
     return null;
   }
 
+  // Handle Client Interaction (Database Client & Memory)
+  const clientInfo = fromNumber ? await handleClientInteraction(tenantId, fromNumber, fromName) : null;
+  const clientStatusContext = clientInfo 
+    ? `STATUS PELANGGAN: ${clientInfo.isNew ? "PELANGGAN BARU" : "PELANGGAN LAMA"}\nKONTAK: ${clientInfo.nomor}${clientInfo.nama ? ` (Nama: ${clientInfo.nama})` : ""}${clientInfo.catatan ? `\nCATATAN INTERNAL: ${clientInfo.catatan}` : ""}`
+    : "";
+
   const context = await getBotContext(tenantId, fromNumber);
   const systemPrompt = `
 JANGAN PERNAH MEMBERIKAN INFORMASI SELAIN YANG ADA DI KONTEKS DI BAWAH INI.
@@ -38,6 +45,8 @@ ${finalSettings.systemPrompt}
 
 TENTANG TOKO KAMI:
 ${context.profile}
+
+${clientStatusContext}
 
 NAMA AGENT: ${finalSettings.namaAgent}
 TONE: ${finalSettings.tone}
@@ -59,6 +68,10 @@ SLOT KONSULTASI TERSEDIA:
 ${context.slots}
 
 ${context.orderHistory ? `RIWAYAT ORDER PELANGGAN INI:\n${context.orderHistory}` : ""}
+
+DETAIL CLIENT (DATABASE):
+AI harus mengenali jika ini pelanggan lama dan bersikap lebih akrab jika sesuai tone.
+Data Client: ${clientStatusContext || "Baru terdeteksi"}
 
 ATURAN KOMUNIKASI:
 1. Jawablah dengan ramah sesuai tone (${finalSettings.tone}).
@@ -270,4 +283,39 @@ async function _getBotContextRaw(tenantId: string) {
   };
 }
 
-export { getBotContext };
+async function handleClientInteraction(tenantId: string, fromNumber: string, fromName?: string) {
+  try {
+    const existingClient = await db.query.clients.findFirst({
+      where: and(eq(clients.tenantId, tenantId), eq(clients.nomor, fromNumber)),
+    });
+
+    if (existingClient) {
+      // Update last interaction and mark as returning
+      const updated = await db.update(clients)
+        .set({ 
+          lastInteraction: new Date(), 
+          isNew: false,
+          // Update name if we get it now but didn't have it before
+          ...(fromName && !existingClient.nama ? { nama: fromName } : {})
+        })
+        .where(eq(clients.id, existingClient.id))
+        .returning();
+      return updated[0];
+    } else {
+      // Create new client
+      const inserted = await db.insert(clients).values({
+        tenantId,
+        nomor: fromNumber,
+        nama: fromName || null,
+        isNew: true,
+        lastInteraction: new Date(),
+      }).returning();
+      return inserted[0];
+    }
+  } catch (error) {
+    console.error("Error handling client interaction:", error);
+    return null;
+  }
+}
+
+export { getBotContext, handleClientInteraction };

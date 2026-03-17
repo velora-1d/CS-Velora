@@ -227,6 +227,18 @@ export const chatLogs = pgTable("chat_logs", {
   timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
 
+// Clients table (Database Client & Memory Context)
+export const clients = pgTable("clients", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+  nomor: varchar("nomor", { length: 30 }).notNull(),
+  nama: varchar("nama", { length: 255 }),
+  catatan: text("catatan"),
+  isNew: boolean("is_new").notNull().default(true),
+  lastInteraction: timestamp("last_interaction").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Subscriptions table (Billing)
 export const subscriptions = pgTable("subscriptions", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -306,6 +318,8 @@ export type Announcement = typeof announcements.$inferSelect;
 export type NewAnnouncement = typeof announcements.$inferInsert;
 export type AnnouncementTarget = typeof announcementTargets.$inferSelect;
 export type NewAnnouncementTarget = typeof announcementTargets.$inferInsert;
+export type Client = typeof clients.$inferSelect;
+export type NewClient = typeof clients.$inferInsert;
 export type OwnerPaymentInfo = typeof ownerPaymentInfo.$inferSelect;
 export type NewOwnerPaymentInfo = typeof ownerPaymentInfo.$inferInsert;
 

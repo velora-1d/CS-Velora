@@ -65,7 +65,7 @@ export async function POST(req: Request) {
     // Insert tenant
     const [newTenant] = await db.insert(tenants).values({
       namaToko,
-      waProvider: "waha", // Default provider for tenant is WAHA
+      waProvider: "waha", // MANDATORY: Tenant dibatasi hanya menggunakan WAHA. Fonnte eksklusif untuk Owner.
       paket: "basic", // Default paket is basic
       status: "trial", // Set status as trial
       trialEndsAt,
