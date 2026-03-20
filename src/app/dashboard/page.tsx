@@ -164,12 +164,12 @@ export default async function DashboardPage() {
         <div className="absolute inset-y-0 right-0 hidden w-72 bg-[radial-gradient(circle_at_center,rgba(86,214,255,0.18),transparent_70%)] blur-2xl lg:block" />
         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
-            <span className="section-kicker">Velora operations grid</span>
+            <span className="section-kicker">Velora Operations Grid</span>
             <h1 className="mt-5 font-display text-4xl font-semibold tracking-[-0.06em] text-[#F1F5F9] md:text-5xl">
-              Dashboard admin untuk membaca pulsa bisnis dalam satu pandangan.
+              Pusat kendali untuk memantau performa operasional bisnis dalam satu pandangan.
             </h1>
             <p className="mt-4 max-w-xl text-sm leading-7 text-[#93A8C7] md:text-base">
-              Pantau order masuk, kesehatan WhatsApp, slot konsultasi, dan workload admin tanpa harus pindah tab.
+              Pantau order masuk, kesehatan sistem WhatsApp, slot konsultasi, dan beban kerja tim tanpa harus berpindah tab.
             </p>
           </div>
           <div className="panel-shell flex min-w-[280px] flex-col gap-4 p-5">
