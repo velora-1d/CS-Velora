@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { 
   Users, DollarSign, TrendingUp, AlertCircle, CheckCircle2,
-  BarChart3, PieChart as PieChartIcon, Activity, Loader2, Star
+  BarChart3, PieChart as PieChartIcon, Activity, Loader2, Star, ShoppingCart
 } from "lucide-react";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -76,9 +76,17 @@ export default function OwnerDashboard() {
       </section>
       
       {/* Premium KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Total GMV Card */}
         <div className="metric-card p-5">
-          <p className="text-xs uppercase tracking-wider text-[#94A3B8] mb-2 font-bold">Total Revenue</p>
+          <p className="text-xs uppercase tracking-wider text-[#94A3B8] mb-2 font-bold">Produk (GMV)</p>
+          <div className="flex items-center justify-between">
+            <h3 className="text-2xl font-bold text-[#F1F5F9]">{formatRupiah(data?.gmv?.total || 0)}</h3>
+            <div className="p-2 bg-emerald-500/10 rounded-lg"><ShoppingCart className="w-5 h-5 text-emerald-500" /></div>
+          </div>
+        </div>
+        <div className="metric-card p-5">
+          <p className="text-xs uppercase tracking-wider text-[#94A3B8] mb-2 font-bold">Total Subscription</p>
           <div className="flex items-center justify-between">
             <h3 className="text-2xl font-bold text-[#F1F5F9]">{formatRupiah(data.revenue.total)}</h3>
             <div className="p-2 bg-emerald-500/10 rounded-lg"><DollarSign className="w-5 h-5 text-emerald-500" /></div>
@@ -166,11 +174,11 @@ export default function OwnerDashboard() {
               {data.tenants.list.slice(0, 3).map((tenant: any) => (
                 <div key={tenant.id} className="flex justify-between items-center p-3 rounded-lg bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
                   <div className="flex items-center gap-3">
-                     <div className="w-8 h-8 rounded-full bg-[#3B82F6]/20 flex items-center justify-center text-[#3B82F6] font-bold text-xs">
-                        {tenant.name[0]}
+                     <div className="w-8 h-8 rounded-full bg-[#3B82F6]/20 flex items-center justify-center text-[#3B82F6] font-bold text-xs uppercase">
+                        {tenant.namaToko ? tenant.namaToko[0] : "?"}
                      </div>
                      <div>
-                        <p className="text-xs text-[#F1F5F9] font-medium">{tenant.name}</p>
+                        <p className="text-xs text-[#F1F5F9] font-medium">{tenant.namaToko || "Tanpa Nama"}</p>
                         <p className="text-[10px] text-[#94A3B8]">Bergabung pada {new Date(tenant.createdAt).toLocaleDateString("id-ID")}</p>
                      </div>
                   </div>

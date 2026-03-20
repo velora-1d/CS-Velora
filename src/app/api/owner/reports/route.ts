@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { tenants, subscriptions } from "@/db/schema";
+import { tenants, subscriptions, orders } from "@/db/schema";
 import { sql, eq, and, gte } from "drizzle-orm";
 
 export async function GET(req: Request) {
@@ -61,6 +61,15 @@ export async function GET(req: Request) {
       .from(subscriptions)
       .where(and(eq(subscriptions.status, 'active'), ...subDateFilter));
 
+    // 4. GMV Data (Total Product Sales across all tenants via payment gateway / confirmed orders)
+    const [gmvStats] = await db
+      .select({
+        total: sql<number>`COALESCE(sum(total_harga), 0)`,
+        thisMonth: sql<number>`COALESCE(sum(total_harga) filter (where date_trunc('month', created_at) = date_trunc('month', current_date)), 0)`,
+      })
+      .from(orders)
+      .where(and(sql`status IN ('konfirmasi', 'proses', 'selesai')`, ...dateFilter));
+
     // 4. Detail Tenants (for export)
     const tenantList = await db
       .select()
@@ -83,6 +92,10 @@ export async function GET(req: Request) {
       revenue: {
         total: Number(revenueStats.total),
         thisMonth: Number(revenueStats.thisMonth),
+      },
+      gmv: {
+        total: Number(gmvStats.total),
+        thisMonth: Number(gmvStats.thisMonth),
       }
     });
 
