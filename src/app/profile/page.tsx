@@ -19,6 +19,8 @@ type ProfileData = {
   waNumber: string;
   waProvider: string;
   paket: string;
+  pakasirProjectSlug: string;
+  pakasirApiKey: string;
 };
 
 const defaults: ProfileData = {
@@ -30,6 +32,8 @@ const defaults: ProfileData = {
   waNumber: "",
   waProvider: "",
   paket: "",
+  pakasirProjectSlug: "",
+  pakasirApiKey: "",
 };
 
 export default function ProfilePage() {
@@ -157,6 +161,29 @@ export default function ProfilePage() {
                 <p className="text-sm text-[#F1F5F9]">WhatsApp: {profile.waNumber || "—"}</p>
                 <p className="text-xs text-[#69809F]">Provider: {profile.waProvider?.toUpperCase() || "—"}</p>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Pakasir Payment Gateway Settings */}
+        <div className="glass-card p-6 space-y-5 lg:col-span-2">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(255,255,255,0.05)] text-[#4ADE80]">
+              <Store className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="font-display text-xl text-[#F1F5F9]">Gateway Pembayaran (Pakasir)</h2>
+              <p className="text-xs text-[#93A8C7] mt-1">Isi data ini jika Anda menggunakan Pakasir sebagai payment gateway otomatis. Jika kosong, pembayaran manual akan digunakan.</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm text-[#93A8C7] mb-2">Pakasir Project Slug</label>
+              <input type="text" value={profile.pakasirProjectSlug || ""} onChange={(e) => setProfile((c) => ({ ...c, pakasirProjectSlug: e.target.value }))} className="app-input" placeholder="contoh: velora-id" />
+            </div>
+            <div>
+              <label className="block text-sm text-[#93A8C7] mb-2">Pakasir API Key</label>
+              <input type="text" value={profile.pakasirApiKey || ""} onChange={(e) => setProfile((c) => ({ ...c, pakasirApiKey: e.target.value }))} className="app-input" placeholder="pk_..." />
             </div>
           </div>
         </div>

@@ -29,6 +29,8 @@ export async function GET() {
       waNumber: tenant.waNumber,
       waProvider: tenant.waProvider,
       paket: tenant.paket,
+      pakasirProjectSlug: tenant.pakasirProjectSlug,
+      pakasirApiKey: tenant.pakasirApiKey,
     });
   } catch (error) {
     console.error("GET /api/profile error:", error);
@@ -51,6 +53,8 @@ export async function PUT(req: Request) {
       deskripsi: body.deskripsi,
       linkShopee: body.linkShopee,
       linkTiktok: body.linkTiktok,
+      pakasirProjectSlug: body.pakasirProjectSlug || null,
+      pakasirApiKey: body.pakasirApiKey || null,
     }).where(eq(tenants.id, tenantId)).returning();
 
     if (!updated.length) {
