@@ -11,8 +11,8 @@ const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 30; // max 30 requests per minute per number
 const RATE_WINDOW = 60 * 1000; // 1 minute
 
-// ID Tenant Owner khusus untuk Fonnte CS
-const OWNER_TENANT_ID = "be8272d9-b74f-4184-9d4b-63322b07dfef";
+// ID Tenant Owner khusus untuk Fonnte CS — ambil dari env var, fallback ke hardcoded
+const OWNER_TENANT_ID = process.env.OWNER_TENANT_ID || "be8272d9-b74f-4184-9d4b-63322b07dfef";
 
 function isRateLimited(fromNumber: string): boolean {
   const now = Date.now();
@@ -170,30 +170,31 @@ export async function POST(req: Request) {
         content: log.message || log.reply || "",
       }));
 
-      // Calculate delay with correct operator precedence
-      const delayMin = settings?.delayMin || 2000;
-      const delayMax = settings?.delayMax || 5000;
+      // Delay realistis: max 3 detik untuk hindari Vercel timeout
+      const delayMin = settings?.delayMin || 1000;
+      const delayMax = settings?.delayMax || 3000;
       const delay = Math.floor(Math.random() * (delayMax - delayMin + 1)) + delayMin;
-      const safeDelay = Math.min(delay, 8000); // cap at 8 seconds
+      const safeDelay = Math.min(delay, 3000); // cap di 3 detik
 
-      // Start typing indicator BEFORE delay
+      // Start typing indicator BEFORE AI call
       if (settings?.typingIndicator !== false) {
         await setWhatsAppPresence(tenant.id, messageData.from, "typing");
       }
 
-      const aiReply = await getAiCompletion(tenant.id, messageData.body, history, undefined, messageData.from, messageData.name);
+      // Jalankan delay dan AI completion secara paralel
+      const [aiReply] = await Promise.all([
+        getAiCompletion(tenant.id, messageData.body, history, undefined, messageData.from, messageData.name),
+        new Promise(resolve => setTimeout(resolve, safeDelay)),
+      ]);
 
       if (aiReply) {
-        // Wait delay WHILE typing indicator is showing
-        await new Promise(resolve => setTimeout(resolve, safeDelay));
-
-        // Stop typing indicator THEN send message
+        // Stop typing indicator
         if (settings?.typingIndicator !== false) {
           await setWhatsAppPresence(tenant.id, messageData.from, "paused");
         }
 
-        await sendWhatsAppAndLog(tenant.id, messageData.from, aiReply, true);
-        return NextResponse.json({ status: "ai_replied" });
+        const sent = await sendWhatsAppAndLog(tenant.id, messageData.from, aiReply, true);
+        return NextResponse.json({ status: sent ? "ai_replied" : "send_failed" });
       }
     } catch (aiError) {
       console.error("AI Error:", aiError);
@@ -206,7 +207,7 @@ export async function POST(req: Request) {
   }
 }
 
-async function sendWhatsAppAndLog(tenantId: string, to: string, message: string, isAi: boolean) {
+async function sendWhatsAppAndLog(tenantId: string, to: string, message: string, isAi: boolean): Promise<boolean> {
   try {
     await sendWhatsAppMessage(tenantId, to, message);
     
@@ -218,7 +219,9 @@ async function sendWhatsAppAndLog(tenantId: string, to: string, message: string,
       isAi: isAi,
       isHuman: false,
     });
+    return true;
   } catch (error) {
     console.error("Failed to send WA or log reply:", error);
+    return false; // Kembalikan false agar caller tahu pengiriman gagal
   }
 }
