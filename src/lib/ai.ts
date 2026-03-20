@@ -153,25 +153,74 @@ ATURAN KOMUNIKASI:
               continue;
             }
 
-            const totalHarga = product.harga * args.jumlah;
+            const hargaAsli = product.harga * args.jumlah;
+            const today = new Date().toISOString().split("T")[0]; // format YYYY-MM-DD
+
+            // Cari promo aktif yang berlaku untuk produk ini
+            const activePromos = await db.query.promos.findMany({
+              where: and(
+                eq(promos.tenantId, tenantId),
+                eq(promos.aktif, true),
+              ),
+              with: { promoProducts: true },
+            });
+
+            let appliedPromo: typeof activePromos[0] | null = null;
+            let diskonAmount = 0;
+
+            for (const promo of activePromos) {
+              // Cek tanggal berlaku
+              if (today < promo.tanggalMulai || today > promo.tanggalBerakhir) continue;
+              // Cek minimum pembelian
+              if (promo.minPembelian && hargaAsli < promo.minPembelian) continue;
+              // Cek apakah promo berlaku untuk produk ini
+              const isTargetAll = promo.targetTipe === "all";
+              const isTargetProduct = (promo as any).promoProducts?.some((pp: any) => pp.productId === product.id);
+              if (!isTargetAll && !isTargetProduct) continue;
+
+              // Hitung diskon
+              let rawDiskon = 0;
+              if (promo.diskonTipe === "persen") {
+                rawDiskon = Math.floor((hargaAsli * promo.diskonValue) / 100);
+              } else {
+                rawDiskon = promo.diskonValue * args.jumlah;
+              }
+              // Terapkan maxPotongan jika ada
+              if (promo.maxPotongan && rawDiskon > promo.maxPotongan) rawDiskon = promo.maxPotongan;
+
+              // Pakai promo pertama yang cocok (bisa diextend ke "terbaik" nanti)
+              appliedPromo = promo;
+              diskonAmount = rawDiskon;
+              break;
+            }
+
+            const totalHarga = Math.max(0, hargaAsli - diskonAmount);
+
             const orderResult = await db.insert(orders).values({
               tenantId,
               fromNumber: fromNumber || "unknown",
+              fromName: fromName || null,
               productId: product.id,
               jumlah: args.jumlah,
+              hargaAsli,
+              diskonAmount,
               totalHarga,
+              promoId: appliedPromo?.id || null,
               alamat: args.alamat || null,
               status: "pending",
             }).returning({ id: orders.id });
 
             const orderId = orderResult[0].id;
-            let replyContent = `Sukses. Order ID: ${orderId.substring(0, 8)}. Total: Rp ${totalHarga.toLocaleString("id-ID")}. `;
+            const diskonInfo = diskonAmount > 0 
+              ? ` (Diskon ${appliedPromo?.judul}: -Rp ${diskonAmount.toLocaleString("id-ID")})` 
+              : "";
+            let replyContent = `Sukses. Order ID: ORD-${orderId.substring(0, 8)}. Harga asli: Rp ${hargaAsli.toLocaleString("id-ID")}${diskonInfo}. Total bayar: Rp ${totalHarga.toLocaleString("id-ID")}. `;
 
             if (context.tenant?.pakasirProjectSlug) {
-              const checkoutUrl = `https://pakasir.com/p/${context.tenant.pakasirProjectSlug}?amount=${totalHarga}&ref=ORD-${orderId}&title=Order-${encodeURIComponent(product.nama.substring(0, 50))}`;
+              const checkoutUrl = `https://app.pakasir.com/pay/${context.tenant.pakasirProjectSlug}/${totalHarga}?order_id=ORD-${orderId}&title=Order-${encodeURIComponent(product.nama.substring(0, 50))}`;
               replyContent += `Berikan BERITA BAIK ke pelanggan bahwa pesanan berhasil dicatat dan arahkan mereka untuk membayar melalui link berikut: ${checkoutUrl}`;
             } else {
-              replyContent += `Minta pelanggan mentransfer sesuai instruksi pembayaran admin.`;
+              replyContent += `Minta pelanggan mentransfer sesuai instruksi pembayaran yang tersedia.`;
             }
 
             currentMessages.push({ role: "tool", tool_call_id: toolCall.id, content: replyContent });

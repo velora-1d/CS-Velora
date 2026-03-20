@@ -153,7 +153,10 @@ export const orders = pgTable("orders", {
   fromName: varchar("from_name", { length: 255 }),
   productId: uuid("product_id").references(() => products.id).notNull(),
   jumlah: integer("jumlah").notNull(),
-  totalHarga: integer("total_harga").notNull(),
+  hargaAsli: integer("harga_asli").notNull(),       // harga sebelum diskon
+  diskonAmount: integer("diskon_amount").notNull().default(0), // nominal diskon diterapkan
+  totalHarga: integer("total_harga").notNull(),     // harga final setelah diskon
+  promoId: uuid("promo_id").references(() => promos.id),      // promo yang dipakai (nullable)
   alamat: text("alamat"),
   buktiTransfer: varchar("bukti_transfer", { length: 500 }),
   paymentMethodId: uuid("payment_method_id").references(() => paymentMethods.id),
