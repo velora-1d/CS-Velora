@@ -43,7 +43,7 @@ export default function OwnerLayout({
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0F1E] text-[#F1F5F9] flex flex-col md:flex-row">
+    <div className="min-h-screen bg-[#0A0F1E] text-[#F1F5F9]">
       <MobileHeader 
         isOpen={isSidebarOpen} 
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -57,7 +57,7 @@ export default function OwnerLayout({
       />
 
       {/* Main Content Areas */}
-      <main className="flex-1 overflow-x-hidden pt-20 md:pt-8 p-4 md:p-8 transition-all duration-300">
+      <main className="min-h-screen pt-20 md:pt-8 md:ml-64 p-4 md:p-8 transition-all duration-300">
         <div className="max-w-[1600px] mx-auto">
           {children}
         </div>
