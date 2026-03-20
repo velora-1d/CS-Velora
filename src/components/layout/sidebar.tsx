@@ -69,6 +69,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     }
   }, [pathname, onClose, isOpen]);
 
+  // Auto-scroll to active menu item on mount / path change
+  useEffect(() => {
+    const activeItem = document.getElementById("active-menu-item");
+    if (activeItem) {
+      activeItem.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [pathname]);
+
   return (
     <>
       {/* Mobile Overlay */}
@@ -158,35 +166,23 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         <nav 
           id="sidebar-nav"
           className="flex-1 overflow-y-auto px-2 py-6 custom-scrollbar"
-          onScroll={(e) => {
-            sessionStorage.setItem("sidebar-scroll", e.currentTarget.scrollTop.toString());
-          }}
         >
-          <script dangerouslySetInnerHTML={{ __html: `
-            (function() {
-              const nav = document.getElementById('sidebar-nav');
-              const saved = sessionStorage.getItem('sidebar-scroll');
-              if (nav && saved) {
-                nav.scrollTop = parseInt(saved);
-              }
-            })();
-          `}} />
           <ul className="space-y-1.5">
             {menuItems.map((item) => {
               const isActive = pathname === item.href ||
                 (item.href !== "/dashboard" && pathname.startsWith(item.href));
               return (
-                <li key={item.href} className="relative px-2">
+                <li key={item.href} className="relative px-2" id={isActive ? "active-menu-item" : undefined}>
                   {isActive && (
                     <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-[#56D6FF] shadow-[0_0_12px_#56D6FF]" />
                   )}
                   <Link
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-3 rounded-2xl px-3 py-3 transition-all duration-300 group overflow-hidden",
+                      "flex items-center gap-3 rounded-2xl px-3 py-3 transition-all duration-300 group overflow-hidden border",
                       isActive
-                        ? "bg-[linear-gradient(135deg,rgba(86,214,255,0.22),rgba(103,167,255,0.12))] text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.12),0_10px_20px_-10px_rgba(86,214,255,0.3)]"
-                        : "text-[#94A3B8] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#F1F5F9]"
+                        ? "bg-[#56D6FF]/15 border-[#56D6FF]/40 text-white shadow-[0_0_15px_rgba(86,214,255,0.2)]"
+                        : "border-transparent text-[#94A3B8] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#F1F5F9]"
                     )}
                   >
                     <span
