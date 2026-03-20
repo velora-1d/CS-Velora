@@ -117,8 +117,8 @@ export default function RegisterPage() {
         
         <div className="relative z-10 w-full flex flex-col justify-between p-12 xl:p-20">
           <div className="flex items-center gap-4">
-            <div className="relative w-12 h-12">
-              <Image src="/logo-velora.png" alt="Velora Logo" fill className="object-contain" priority />
+            <div className="flex shrink-0 items-center justify-center">
+              <Image src="/logo-velora.png" alt="Velora Logo" width={48} height={48} className="object-contain" priority />
             </div>
             <div>
               <h1 className="text-2xl font-display font-bold text-[#F1F5F9] tracking-tight">Velora ID</h1>
@@ -161,8 +161,8 @@ export default function RegisterPage() {
         <div className="w-full max-w-md space-y-8 relative z-10">
           <div className="lg:hidden text-center mb-10">
             <div className="flex justify-center mb-4">
-              <div className="relative w-20 h-20">
-                <Image src="/logo-velora.png" alt="Velora Logo" fill className="object-contain" priority />
+              <div className="flex items-center justify-center">
+                <Image src="/logo-velora.png" alt="Velora Logo" width={80} height={80} className="object-contain" priority />
               </div>
             </div>
             <h1 className="text-3xl font-display font-bold text-[#F1F5F9]">Velora ID</h1>

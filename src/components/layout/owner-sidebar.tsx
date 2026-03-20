@@ -78,6 +78,14 @@ export function OwnerSidebar({ user, isOpen, onClose }: OwnerSidebarProps) {
     }
   }, [pathname, onClose, isOpen]);
 
+  // Auto-scroll to active menu item on mount / path change
+  useEffect(() => {
+    const activeItem = document.getElementById("active-owner-menu-item");
+    if (activeItem) {
+      activeItem.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [pathname]);
+
   return (
     <>
       {/* Mobile Overlay */}
@@ -98,8 +106,8 @@ export function OwnerSidebar({ user, isOpen, onClose }: OwnerSidebarProps) {
       >
         <div className="p-6 border-b border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.02)] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="relative w-10 h-10">
-              <Image src="/logo-velora.png" alt="Velora Logo" fill className="object-contain" priority />
+            <div className="flex items-center justify-center shrink-0">
+              <Image src="/logo-velora.png" alt="Velora Logo" width={40} height={40} className="object-contain" priority />
             </div>
             <div>
               <h1 className="font-bold text-lg leading-none text-white tracking-tight">Velora ID</h1>
@@ -118,19 +126,7 @@ export function OwnerSidebar({ user, isOpen, onClose }: OwnerSidebarProps) {
         <nav 
           id="owner-sidebar-nav"
           className="flex-1 overflow-y-auto p-4 custom-scrollbar"
-          onScroll={(e) => {
-            sessionStorage.setItem("owner-sidebar-scroll", e.currentTarget.scrollTop.toString());
-          }}
         >
-          <script dangerouslySetInnerHTML={{ __html: `
-            (function() {
-              const nav = document.getElementById('owner-sidebar-nav');
-              const saved = sessionStorage.getItem('owner-sidebar-scroll');
-              if (nav && saved) {
-                nav.scrollTop = parseInt(saved);
-              }
-            })();
-          `}} />
           <div className="mb-8">
             <div className="px-4 mb-4">
               <p className="text-[10px] font-black text-[#475569] uppercase tracking-[0.2em]">Sistem Core</p>
@@ -141,6 +137,7 @@ export function OwnerSidebar({ user, isOpen, onClose }: OwnerSidebarProps) {
                 return (
                   <Link
                     key={item.href}
+                    id={isActive ? "active-owner-menu-item" : undefined}
                     href={item.href}
                     className={cn(
                       "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group relative overflow-hidden",
@@ -179,6 +176,7 @@ export function OwnerSidebar({ user, isOpen, onClose }: OwnerSidebarProps) {
                 return (
                   <Link
                     key={item.href}
+                    id={isActive ? "active-owner-menu-item" : undefined}
                     href={item.href}
                     className={cn(
                       "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group relative overflow-hidden",

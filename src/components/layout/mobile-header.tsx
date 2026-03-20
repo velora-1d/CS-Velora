@@ -16,8 +16,8 @@ export function MobileHeader({ isOpen, onToggle, title = "Velora ID", subtitle =
   return (
     <header className="fixed top-0 left-0 right-0 z-50 flex h-16 items-center justify-between border-b border-[rgba(255,255,255,0.08)] bg-[rgba(10,15,30,0.8)] px-4 backdrop-blur-md md:hidden">
       <div className="flex items-center gap-3">
-        <div className="relative w-9 h-9 flex-shrink-0">
-          <Image src="/logo-velora.png" alt="Velora Logo" fill className="object-contain" priority />
+        <div className="flex items-center justify-center flex-shrink-0">
+          <Image src="/logo-velora.png" alt="Velora Logo" width={36} height={36} className="object-contain" priority />
         </div>
         <div className="flex flex-col">
           <span className="font-display text-sm font-bold text-white leading-none tracking-tight">{title}</span>

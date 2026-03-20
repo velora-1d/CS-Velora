@@ -84,8 +84,8 @@ export default function LoginPage() {
         <div className="relative z-10 flex flex-col h-full px-14 xl:px-20 py-12">
           {/* Logo */}
           <div className="flex items-center gap-3.5">
-            <div className="relative w-10 h-10 shrink-0">
-              <Image src="/logo-velora.png" alt="Velora Logo" fill className="object-contain" priority />
+            <div className="shrink-0 flex items-center justify-center">
+              <Image src="/logo-velora.png" alt="Velora Logo" width={40} height={40} className="object-contain" priority />
             </div>
             <div>
               <p className="text-lg font-display font-bold text-[#F1F5F9] tracking-tight leading-none">Velora ID</p>
@@ -140,8 +140,8 @@ export default function LoginPage() {
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-10">
             <div className="inline-flex items-center gap-3 mb-1">
-              <div className="relative w-9 h-9">
-                <Image src="/logo-velora.png" alt="Velora Logo" fill className="object-contain" priority />
+              <div className="flex items-center justify-center">
+                <Image src="/logo-velora.png" alt="Velora Logo" width={36} height={36} className="object-contain" priority />
               </div>
               <span className="text-2xl font-display font-bold text-[#F1F5F9]">Velora ID</span>
             </div>

@@ -99,8 +99,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="flex h-20 items-center justify-between border-b border-[rgba(255,255,255,0.08)] px-4">
           {(!collapsed || isOpen) ? (
             <Link href="/dashboard" className="flex items-center gap-3">
-              <div className="relative w-10 h-10 flex-shrink-0">
-                <Image src="/logo-velora.png" alt="Velora Logo" fill className="object-contain" priority />
+              <div className="flex shrink-0 items-center justify-center">
+                <Image src="/logo-velora.png" alt="Velora Logo" width={40} height={40} className="object-contain" priority />
               </div>
               <div className={cn("transition-opacity duration-300", collapsed && !isOpen ? "opacity-0 w-0 overflow-hidden" : "opacity-100")}>
                 <p className="font-display text-base font-semibold text-[#F1F5F9] whitespace-nowrap">
