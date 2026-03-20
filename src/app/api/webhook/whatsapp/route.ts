@@ -170,11 +170,10 @@ export async function POST(req: Request) {
         content: log.message || log.reply || "",
       }));
 
-      // Delay realistis: max 3 detik untuk hindari Vercel timeout
+      // Delay mengikuti setting dari dashboard Bot Settings (tanpa cap)
       const delayMin = settings?.delayMin || 1000;
       const delayMax = settings?.delayMax || 3000;
       const delay = Math.floor(Math.random() * (delayMax - delayMin + 1)) + delayMin;
-      const safeDelay = Math.min(delay, 3000); // cap di 3 detik
 
       // Start typing indicator BEFORE AI call
       if (settings?.typingIndicator !== false) {
@@ -184,7 +183,7 @@ export async function POST(req: Request) {
       // Jalankan delay dan AI completion secara paralel
       const [aiReply] = await Promise.all([
         getAiCompletion(tenant.id, messageData.body, history, undefined, messageData.from, messageData.name),
-        new Promise(resolve => setTimeout(resolve, safeDelay)),
+        new Promise(resolve => setTimeout(resolve, delay)),
       ]);
 
       if (aiReply) {

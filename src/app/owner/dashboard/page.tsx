@@ -16,6 +16,7 @@ const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
 export default function OwnerDashboard() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -27,9 +28,12 @@ export default function OwnerDashboard() {
       if (res.ok) {
         const json = await res.json();
         setData(json);
+      } else {
+        setError("Gagal memuat data. Pastikan Anda login sebagai owner.");
       }
-    } catch (error) {
-      console.error("Gagal memuat data dashboard", error);
+    } catch (err) {
+      console.error("Gagal memuat data dashboard", err);
+      setError("Koneksi ke server gagal. Coba refresh halaman.");
     } finally {
       setLoading(false);
     }
@@ -40,6 +44,21 @@ export default function OwnerDashboard() {
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <Loader2 className="w-10 h-10 animate-spin text-[#3B82F6] mb-4" />
         <p className="text-[#94A3B8]">Memuat dashboard pusat...</p>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <AlertCircle className="w-12 h-12 text-red-400" />
+        <p className="text-[#94A3B8] text-center max-w-md">{error || "Data tidak tersedia."}</p>
+        <button
+          onClick={fetchData}
+          className="px-6 py-2 bg-[#3B82F6] text-white rounded-xl text-sm hover:bg-[#2563EB] transition-colors"
+        >
+          Coba Lagi
+        </button>
       </div>
     );
   }
