@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { tenants, chatLogs, waSessions } from "@/db/schema";
-import { eq, or, and } from "drizzle-orm";
+import { eq, or, and, isNotNull, gte, desc } from "drizzle-orm";
 import { sendWhatsAppMessage, setWhatsAppPresence } from "@/lib/whatsapp";
 import { getAiCompletion } from "@/lib/ai";
 import { checkBotAvailability } from "@/lib/bot-logic";
@@ -54,20 +54,20 @@ export async function POST(req: Request) {
       provider: "",
       identifier: "", // session for WAHA, device for Fonnte
       name: "", // pushName or sender name
+      isFromMe: false,
     };
 
     // 1. Parse Provider Payload
     if (body.event === "message.created") {
       // WAHA
       messageData = {
-        from: body.payload.from.split("@")[0],
+        from: body.payload.fromMe ? body.payload.to?.split("@")[0] || "" : body.payload.from?.split("@")[0] || "",
         body: body.payload.body,
         provider: "waha",
         identifier: body.session,
         name: body.payload.pushName || "",
+        isFromMe: body.payload.fromMe === true,
       };
-      // Skip if message is from the bot itself
-      if (body.payload.fromMe) return NextResponse.json({ status: "skipped_from_me" });
     } else if (body.sender && body.message && body.device) {
       // Fonnte
       messageData = {
@@ -76,6 +76,7 @@ export async function POST(req: Request) {
         provider: "fonnte",
         identifier: body.device,
         name: body.name || "",
+        isFromMe: false, // Fonnte jarang kirim webhook dari pengirim, default false
       };
     } else {
       return NextResponse.json({ error: "Unsupported provider payload" }, { status: 400 });
@@ -135,7 +136,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
     }
 
-    // 4. Log Incoming Message
+    // 4. Handle fromMe (Manual Reply from Admin's phone)
+    if (messageData.isFromMe) {
+      await db.insert(chatLogs).values({
+        tenantId: tenant.id,
+        fromNumber: messageData.from,
+        message: "", // Kosong karena ini adalah balasan
+        reply: messageData.body,
+        isAi: false,
+        isHuman: true, // Tandai sebagai balasan dari admin manusia
+      });
+      return NextResponse.json({ status: "human_reply_logged" });
+    }
+
+    // 4.5 Log Incoming Message from Customer
     await db.insert(chatLogs).values({
       tenantId: tenant.id,
       fromNumber: messageData.from,
@@ -144,7 +158,26 @@ export async function POST(req: Request) {
       isHuman: true,
     });
 
-    // 5. Check Bot Availability & AI Settings
+    // 5. Check Human Handover Cooldown (2 Hours)
+    // Jika admin membalas secara manual kurang dari 2 jam yang lalu, jangan proses dengan AI.
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const lastHumanReply = await db.query.chatLogs.findFirst({
+      where: and(
+        eq(chatLogs.tenantId, tenant.id),
+        eq(chatLogs.fromNumber, messageData.from),
+        eq(chatLogs.isHuman, true),
+        isNotNull(chatLogs.reply),
+        gte(chatLogs.timestamp, twoHoursAgo)
+      ),
+      orderBy: [desc(chatLogs.timestamp)],
+    });
+
+    if (lastHumanReply) {
+      console.log(`[Handover] Skipping AI for ${messageData.from} due to active human cooldown.`);
+      return NextResponse.json({ status: "human_cooldown_active" });
+    }
+
+    // 6. Check Bot Availability & AI Settings
     const { available, settings } = await checkBotAvailability(tenant.id);
     
     if (!available) {
