@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { products, faqs, promos, aiSettings, tenants, paymentMethods, orders, consultationSlots, clients } from "@/db/schema";
+import { products, faqs, promos, aiSettings, tenants, paymentMethods, orders, consultationSlots, clients, chatLogs } from "@/db/schema";
 import { eq, and, asc, gte, desc } from "drizzle-orm";
 
 // In-memory cache untuk context bot per tenant (TTL 5 menit)
@@ -12,7 +12,8 @@ export async function getAiCompletion(
   history: { role: string; content: string }[] = [],
   overrides?: Partial<{ systemPrompt: string; namaAgent: string; model: string; tone: string }>,
   fromNumber?: string,
-  fromName?: string
+  fromName?: string,
+  imageUrl?: string
 ) {
   const settings = await db.query.aiSettings.findFirst({
     where: eq(aiSettings.tenantId, tenantId),
@@ -81,6 +82,7 @@ ATURAN KOMUNIKASI:
 5. Gunakan Bahasa Indonesia yang baik dan manusiawi.
 6. Jika pelanggan sudah pernah order, referensikan riwayat ordernya.
 7. Jika ada slot konsultasi tersedia, tawarkan secara proaktif.
+8. PENTING: Jika pengguna terdeteksi emosi, komplain kasar, ngotot, atau terang-terangan meminta bicara dengan admin, panggil fungsi \`escalate_to_human\` agar admin asli mengambil alih, dan berikan balasan penenang pendek seperti "Mohon maaf atas ketidaknyamanan Anda. Mohon ditunggu, tim CS kami akan segera masuk membantu Anda."
 `;
 
   const baseUrl = process.env.SEED_AI_URL || "https://ai.sumopod.com/v1";
@@ -89,6 +91,20 @@ ATURAN KOMUNIKASI:
   if (!apiKey) throw new Error("SEED_AI_API_KEY is not configured");
 
   const tools = [
+    {
+      type: "function",
+      function: {
+        name: "escalate_to_human",
+        description: "Gunakan SECARA OTOMATIS dan LANGSUNG jika pengguna marah, emosi negatif tinggi, mengancam refund/blokir, komplain parah, atau meminta bicara dengan admin manusia. Berfungsi untuk mendiamkan bot sementara agar admin riil bisa segera masuk menangani keluhan.",
+        parameters: {
+          type: "object",
+          properties: {
+            reason: { type: "string", description: "Alasan eskalasi, contoh: 'Pelanggan marah', 'Klaim Retur', 'Minta Admin'" }
+          },
+          required: ["reason"]
+        }
+      }
+    },
     {
       type: "function",
       function: {
@@ -107,10 +123,18 @@ ATURAN KOMUNIKASI:
     }
   ];
 
+  let userMessageContent: any = userMessage;
+  if (imageUrl) {
+    userMessageContent = [
+      { type: "text", text: userMessage || "[Gambar Lampiran]" },
+      { type: "image_url", image_url: { url: imageUrl } }
+    ];
+  }
+
   let currentMessages: any[] = [
     { role: "system", content: systemPrompt },
     ...history,
-    { role: "user", content: userMessage },
+    { role: "user", content: userMessageContent },
   ];
 
   // Loop untuk menghandle tool calling (maksimal 2 iterasi)
@@ -143,7 +167,24 @@ ATURAN KOMUNIKASI:
       currentMessages.push(responseMessage); // Masukkan response tool_calls ke riwayat
 
       for (const toolCall of responseMessage.tool_calls) {
-        if (toolCall.function.name === "create_order") {
+        if (toolCall.function.name === "escalate_to_human") {
+          try {
+            const args = JSON.parse(toolCall.function.arguments);
+            // Insert force human cooldown
+            await db.insert(chatLogs).values({
+              tenantId,
+              fromNumber: fromNumber || "unknown",
+              message: "",
+              reply: `[SISTEM] AI diberhentikan sejenak (Eskalasi Sentimen/Konteks: ${args.reason}). Segera balas secara manual untuk mengambil alih sesi ini.`,
+              isAi: false,
+              isHuman: true, // men-trigger batas waktu cooldown 2 jam
+            });
+            currentMessages.push({ role: "tool", tool_call_id: toolCall.id, content: "Sukses: Obrolan telah dialihkan ke Admin." });
+          } catch (e: any) {
+            console.error("Tool escalate error:", e);
+            currentMessages.push({ role: "tool", tool_call_id: toolCall.id, content: `Error: ${e.message}` });
+          }
+        } else if (toolCall.function.name === "create_order") {
           try {
             const args = JSON.parse(toolCall.function.arguments);
             const product = await db.query.products.findFirst({ where: eq(products.id, args.product_id) });
