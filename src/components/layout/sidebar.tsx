@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
+
 import {
   LayoutDashboard,
   MessageCircle,
@@ -31,27 +31,6 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
-const menuItems = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/dashboard/whatsapp", icon: MessageCircle, label: "WhatsApp" },
-  { href: "/products", icon: Package, label: "Produk" },
-  { href: "/promos", icon: Tag, label: "Promo" },
-  { href: "/keuangan", icon: DollarSign, label: "Keuangan" },
-  { href: "/orders", icon: ShoppingCart, label: "Pesanan" },
-  { href: "/reports", icon: TrendingUp, label: "Laporan" },
-  { href: "/dashboard/clients", icon: Database, label: "Database Client" },
-  { href: "/consultations", icon: Calendar, label: "Jadwal & Konsultasi" },
-  { href: "/payments", icon: CreditCard, label: "Pembayaran" },
-  { href: "/billing", icon: CreditCard, label: "Langganan & Billing" },
-  { href: "/faqs", icon: HelpCircle, label: "FAQ" },
-  { href: "/ai-settings", icon: Bot, label: "AI Settings" },
-  { href: "/bot-settings", icon: Settings, label: "Bot Settings" },
-  { href: "/security", icon: Shield, label: "Security" },
-  { href: "/chats", icon: MessageSquare, label: "Riwayat Chat" },
-  { href: "/profile", icon: Store, label: "Profil Toko" },
-  { href: "/account", icon: User, label: "Akun" },
-];
-
 interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
@@ -61,6 +40,75 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [collapsed, setCollapsed] = useState(false);
+  const [catalogLabel, setCatalogLabel] = useState("Produk");
+  const [orderLabel, setOrderLabel] = useState("Pesanan");
+  const [logoUrl, setLogoUrl] = useState<string>("/logo-velora.png");
+
+  useEffect(() => {
+    const fetchLabels = async () => {
+      try {
+        const res = await fetch("/api/profile");
+        const data = await res.json();
+        if (res.ok) {
+          if (data.catalogLabel) setCatalogLabel(data.catalogLabel);
+          if (data.orderLabel) setOrderLabel(data.orderLabel);
+          
+          if (data.logoUrl) {
+            setLogoUrl(data.logoUrl);
+          } else {
+            const resBrand = await fetch("/api/branding");
+            if (resBrand.ok) {
+              const brandData = await resBrand.json();
+              setLogoUrl(brandData.system_sidebar_logo || "/logo-velora.png");
+            } else {
+              setLogoUrl("/logo-velora.png");
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Gagal memuat label kustom di sidebar:", error);
+      }
+    };
+    fetchLabels();
+
+    window.addEventListener("profile-updated", fetchLabels);
+    window.addEventListener("branding-updated", fetchLabels);
+    return () => {
+      window.removeEventListener("profile-updated", fetchLabels);
+      window.removeEventListener("branding-updated", fetchLabels);
+    };
+  }, []);
+
+  const menuGroups = [
+    {
+      title: "Daily Operations",
+      items: [
+        { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+        { href: "/dashboard/clients", icon: Database, label: "Database Client" },
+      ]
+    },
+    {
+      title: "Katalog & Fitur",
+      items: [
+        { href: "/products", icon: Package, label: catalogLabel, activePaths: ["/products", "/catalog-fields"] },
+        { href: "/orders", icon: ShoppingCart, label: orderLabel, activePaths: ["/orders"] },
+        { href: "/consultations", icon: Calendar, label: "Jadwal Konsultasi" },
+        { href: "/chats", icon: MessageSquare, label: "Riwayat Chat" },
+        { href: "/faqs", icon: HelpCircle, label: "FAQ" },
+        { href: "/promos", icon: Tag, label: "Promo" },
+      ]
+    },
+    {
+      title: "Sistem & Laporan",
+      items: [
+        { href: "/keuangan", icon: DollarSign, label: "Keuangan" },
+        { href: "/reports", icon: TrendingUp, label: "Laporan" },
+        { href: "/billing", icon: CreditCard, label: "Langganan" },
+        { href: "/settings", icon: Settings, label: "Pengaturan" },
+      ]
+    }
+  ];
+
 
   // Close sidebar on path change (mobile)
   useEffect(() => {
@@ -99,8 +147,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="flex h-20 items-center justify-between border-b border-[rgba(255,255,255,0.08)] px-4">
           {(!collapsed || isOpen) ? (
             <Link href="/dashboard" className="flex items-center gap-3">
-              <div className="flex shrink-0 items-center justify-center">
-                <Image src="/logo-velora.png" alt="Velora Logo" width={40} height={40} className="object-contain" priority />
+              <div className="flex shrink-0 items-center justify-center w-10 h-10 overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img 
+                  src={logoUrl} 
+                  alt="Velora Logo" 
+                  className="max-w-full max-h-full object-contain p-0.5" 
+                  onError={(e) => { (e.target as HTMLImageElement).src = "/logo-velora.png"; }} 
+                />
               </div>
               <div className={cn("transition-opacity duration-300", collapsed && !isOpen ? "opacity-0 w-0 overflow-hidden" : "opacity-100")}>
                 <p className="font-display text-base font-semibold text-[#F1F5F9] whitespace-nowrap">
@@ -113,8 +167,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             </Link>
           ) : (
             <div className="flex w-full justify-center">
-              <div className="relative w-8 h-8">
-                <Image src="/logo-velora.png" alt="Velora Logo" fill className="object-contain" priority />
+              <div className="relative w-8 h-8 overflow-hidden flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img 
+                  src={logoUrl} 
+                  alt="Velora Logo" 
+                  className="max-w-full max-h-full object-contain" 
+                  onError={(e) => { (e.target as HTMLImageElement).src = "/logo-velora.png"; }} 
+                />
               </div>
             </div>
           )}
@@ -167,51 +227,65 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           id="sidebar-nav"
           className="flex-1 overflow-y-auto px-2 py-6 custom-scrollbar"
         >
-          <ul className="space-y-1.5">
-            {menuItems.map((item) => {
-              const isActive = pathname === item.href ||
-                (item.href !== "/dashboard" && pathname.startsWith(item.href));
-              return (
-                <li key={item.href} className="relative px-2" id={isActive ? "active-menu-item" : undefined}>
-                  {isActive && (
-                    <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-[#56D6FF] shadow-[0_0_12px_#56D6FF]" />
-                  )}
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 rounded-2xl px-3 py-3 transition-all duration-300 group overflow-hidden border",
-                      isActive
-                        ? "bg-[#56D6FF]/15 border-[#56D6FF]/40 text-white shadow-[0_0_15px_rgba(86,214,255,0.2)]"
-                        : "border-transparent text-[#94A3B8] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#F1F5F9]"
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl transition-all duration-300",
-                        isActive
-                          ? "bg-[#56D6FF] text-[#04101c] shadow-[0_0_15px_rgba(86,214,255,0.4)]"
-                          : "bg-[rgba(255,255,255,0.04)] group-hover:scale-110"
-                      )}
-                    >
-                      <item.icon className={cn("h-5 w-5", isActive && "scale-110")} />
-                    </span>
-                    {(!collapsed || isOpen) && (
-                      <span className={cn(
-                        "text-sm font-bold tracking-tight transition-colors",
-                        isActive ? "text-[#F1F5F9]" : "text-[#94A3B8]"
-                      )}>
-                        {item.label}
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="space-y-6">
+            {menuGroups.map((group, groupIdx) => (
+              <div key={group.title} className="space-y-1.5">
+                {(!collapsed || isOpen) ? (
+                  <div className="px-4 text-[10px] font-bold uppercase tracking-wider text-[#69809F] opacity-75 mt-4 first:mt-0">
+                    {group.title}
+                  </div>
+                ) : (
+                  groupIdx > 0 && <div className="mx-4 my-2 border-t border-[rgba(255,255,255,0.06)]" />
+                )}
+                <ul className="space-y-1.5">
+                  {group.items.map((item) => {
+                    const isActive = item.activePaths
+                      ? item.activePaths.some(p => pathname === p || (p !== "/dashboard" && pathname.startsWith(p + "/") || pathname === p))
+                      : pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                    return (
+                      <li key={item.href} className="relative px-2" id={isActive ? "active-menu-item" : undefined}>
+                        {isActive && (
+                          <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-[#56D6FF] shadow-[0_0_12px_#56D6FF]" />
+                        )}
+                        <Link
+                          href={item.href}
+                          className={cn(
+                            "flex items-center gap-3 rounded-2xl px-3 py-3 transition-all duration-300 group overflow-hidden border",
+                            isActive
+                              ? "bg-[#56D6FF]/15 border-[#56D6FF]/40 text-white shadow-[0_0_15px_rgba(86,214,255,0.2)]"
+                              : "border-transparent text-[#94A3B8] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#F1F5F9]"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl transition-all duration-300",
+                              isActive
+                                ? "bg-[#56D6FF] text-[#04101c] shadow-[0_0_15px_rgba(86,214,255,0.4)]"
+                                : "bg-[rgba(255,255,255,0.04)] group-hover:scale-110"
+                            )}
+                          >
+                            <item.icon className={cn("h-5 w-5", isActive && "scale-110")} />
+                          </span>
+                          {(!collapsed || isOpen) && (
+                            <span className={cn(
+                              "text-sm font-bold tracking-tight transition-colors",
+                              isActive ? "text-[#F1F5F9]" : "text-[#94A3B8]"
+                            )}>
+                              {item.label}
+                            </span>
+                          )}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
         </nav>
 
         <div className="p-3 border-t border-[rgba(255,255,255,0.08)] flex flex-col gap-2 bg-[rgba(15,23,42,0.4)]">
-          {(session?.user as any)?.role === 'owner' && (
+          {(session?.user as { role?: string })?.role === 'owner' && (
             <Link
               href="/owner/dashboard"
               className={cn(

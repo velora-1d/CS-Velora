@@ -33,7 +33,7 @@ export async function DELETE(
   });
 
   const wahaBaseUrl = process.env.WAHA_API_URL || "http://localhost:3000";
-  const wahaApiKey = tenant?.waApiKey || process.env.WAHA_API_KEY || "";
+  const wahaApiKey = process.env.WAHA_API_KEY || "";
 
   // Stop session di WAHA
   try {
@@ -84,11 +84,11 @@ export async function GET(
   });
 
   const wahaBaseUrl = process.env.WAHA_API_URL || "http://localhost:3000";
-  const wahaApiKey = tenant?.waApiKey || process.env.WAHA_API_KEY || "";
+  const wahaApiKey = process.env.WAHA_API_KEY || "";
 
-  // Proxy QR code dari WAHA
+  // Proxy QR code dari WAHA (ambil format image PNG)
   const qrRes = await fetch(
-    `${wahaBaseUrl}/api/${waSession.sessionId}/auth/qr?format=json`,
+    `${wahaBaseUrl}/api/${waSession.sessionId}/auth/qr?format=image`,
     { headers: { "X-Api-Key": wahaApiKey } }
   );
 
@@ -96,6 +96,12 @@ export async function GET(
     return NextResponse.json({ error: "QR Code belum tersedia" }, { status: 503 });
   }
 
-  const qrData = await qrRes.json();
-  return NextResponse.json(qrData);
+  const imageBuffer = Buffer.from(await qrRes.arrayBuffer());
+
+  return new Response(imageBuffer, {
+    headers: {
+      "Content-Type": "image/png",
+      "Cache-Control": "no-store, max-age=0",
+    },
+  });
 }

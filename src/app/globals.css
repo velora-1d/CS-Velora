@@ -181,7 +181,6 @@ h3,
 }
 
 .app-input,
-.app-select,
 .app-textarea {
   width: 100%;
   border-radius: 18px;
@@ -193,6 +192,33 @@ h3,
     border-color 160ms ease,
     box-shadow 160ms ease,
     background 160ms ease;
+}
+
+.app-select {
+  width: 100%;
+  border-radius: 18px;
+  border: 1px solid rgba(138, 180, 248, 0.16);
+  background: rgba(5, 13, 25, 0.72);
+  color: var(--text-primary);
+  padding: 0.9rem 1rem;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2393A8C7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1.1rem;
+  padding-right: 2.75rem !important;
+  cursor: pointer;
+}
+
+.app-select option {
+  background-color: #0b1120 !important;
+  color: #f1f5f9 !important;
 }
 
 .app-input::placeholder,
@@ -227,7 +253,7 @@ h3,
 }
 
 .app-button-primary {
-  background: linear-gradient(135deg, #56d6ff, #67a7ff 60%, #9d8cff);
+  background: linear-gradient(135deg, #56d6ff, #67a7ff);
   color: #04101c;
   box-shadow: 0 18px 36px rgba(86, 214, 255, 0.22);
 }

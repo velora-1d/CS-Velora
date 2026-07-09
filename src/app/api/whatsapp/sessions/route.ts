@@ -62,7 +62,7 @@ export async function POST(req: Request) {
 
   // Panggil WAHA API untuk start session
   const wahaBaseUrl = process.env.WAHA_API_URL || "http://localhost:3000";
-  const wahaApiKey = tenant.waApiKey || process.env.WAHA_API_KEY || "";
+  const wahaApiKey = process.env.WAHA_API_KEY || "";
 
   try {
     const wahaRes = await fetch(`${wahaBaseUrl}/api/sessions/start`, {
@@ -98,7 +98,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       session: newSession,
-      qrUrl: `${wahaBaseUrl}/api/${sessionId}/auth/qr?format=image`,
+      qrUrl: `/api/whatsapp/sessions/${newSession.id}`,
     });
   } catch (error) {
     console.error("Error starting WA session:", error);

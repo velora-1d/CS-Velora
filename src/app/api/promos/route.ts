@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { promos, promoProducts } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { promos, promoProducts, catalogItems } from "@/db/schema";
+import { eq, desc, and, inArray } from "drizzle-orm";
 
 export async function GET() {
   try {
@@ -20,10 +20,10 @@ export async function GET() {
       }
     });
 
-    // Map to include selectedProducts array for frontend
+    // Map to include selectedProducts array for frontend (supporting both product and catalog item IDs)
     const mappedPromos = allPromos.map(p => ({
       ...p,
-      selectedProducts: (p as any).promoProducts?.map((pp: any) => pp.productId) || []
+      selectedProducts: (p as any).promoProducts?.map((pp: any) => pp.productId || pp.catalogItemId).filter(Boolean) || []
     }));
 
     return NextResponse.json(mappedPromos);
@@ -61,12 +61,27 @@ export async function POST(req: Request) {
         aktif: true,
       }).returning();
 
-      // 2. If choice target, insert to promo_products
+      // 2. If choice target, insert to promo_products (mapping to product or catalog item accordingly)
       if (body.targetTipe === 'pilihan' && body.selectedProducts?.length > 0) {
-        const productEntries = body.selectedProducts.map((pid: string) => ({
+        const selectedIds = body.selectedProducts as string[];
+        
+        // Find which IDs belong to catalogItems
+        const catalogMatches = await tx
+          .select({ id: catalogItems.id })
+          .from(catalogItems)
+          .where(and(
+            eq(catalogItems.tenantId, tenantId),
+            inArray(catalogItems.id, selectedIds)
+          ));
+          
+        const catalogIds = new Set(catalogMatches.map((c) => c.id));
+
+        const productEntries = selectedIds.map((pid: string) => ({
           promoId: newPromo.id,
-          productId: pid,
+          productId: catalogIds.has(pid) ? null : pid,
+          catalogItemId: catalogIds.has(pid) ? pid : null,
         }));
+        
         await tx.insert(promoProducts).values(productEntries);
       }
 

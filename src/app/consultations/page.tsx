@@ -59,20 +59,36 @@ export default function ConsultationsPage() {
   const fetchInitialData = async () => {
     setLoading(true);
     try {
-      const [resSlots, resRequests, resProducts] = await Promise.all([
+      const [resSlots, resRequests, resProducts, resCatalog] = await Promise.all([
         fetch("/api/consultations/slots"),
         fetch("/api/consultations/requests"),
         fetch("/api/products?type=konsultasi"),
+        fetch("/api/catalog-items?limit=100"),
       ]);
 
       if (resSlots.ok) setSlots(await resSlots.json());
       if (resRequests.ok) setRequests(await resRequests.json());
+      
+      let combinedProducts: any[] = [];
       if (resProducts.ok) {
         const prodData = await resProducts.json();
-        setProducts(prodData);
-        if (prodData.length > 0) {
-          setNewSlot(prev => ({ ...prev, productId: prodData[0].id }));
-        }
+        combinedProducts = [...combinedProducts, ...prodData];
+      }
+      if (resCatalog.ok) {
+        const catData = await resCatalog.json();
+        const catItems = catData.items || [];
+        combinedProducts = [
+          ...combinedProducts,
+          ...catItems.map((c: any) => ({
+            id: c.id,
+            nama: c.nama,
+            isCatalog: true,
+          })),
+        ];
+      }
+      setProducts(combinedProducts);
+      if (combinedProducts.length > 0) {
+        setNewSlot(prev => ({ ...prev, productId: combinedProducts[0].id }));
       }
     } catch (error) {
       toast.error("Gagal mengambil data konsultasi");
@@ -85,10 +101,20 @@ export default function ConsultationsPage() {
     e.preventDefault();
     setLoading(true);
     try {
+      const selectedItem = products.find(p => p.id === newSlot.productId);
+      
+      const payload = {
+        tanggal: newSlot.tanggal,
+        jamMulai: newSlot.jamMulai,
+        jamSelesai: newSlot.jamSelesai,
+        productId: selectedItem?.isCatalog ? null : newSlot.productId,
+        catalogItemId: selectedItem?.isCatalog ? newSlot.productId : null,
+      };
+
       const res = await fetch("/api/consultations/slots", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newSlot),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
@@ -107,8 +133,8 @@ export default function ConsultationsPage() {
 
   const filteredSlots = slots.filter(s => {
     const matchesStatus = filterStatus === "all" || s.status === filterStatus;
-    const matchesSearch = !search || 
-      (s.productName?.toLowerCase().includes(search.toLowerCase()));
+    const name = (s.catalogItem?.nama || s.product?.nama || "").toLowerCase();
+    const matchesSearch = !search || name.includes(search.toLowerCase());
     return matchesStatus && matchesSearch;
   });
 
@@ -201,10 +227,67 @@ export default function ConsultationsPage() {
         </div>
       </div>
 
-      {loading && (
-        <div className="flex flex-col items-center justify-center py-20 text-[#93A8C7]">
-          <Loader2 className="w-10 h-10 animate-spin mb-4 text-[#56D6FF]" />
-          <p>Sinkronisasi data jadwal...</p>
+      {loading && activeTab === "slots" && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <div key={idx} className="panel-shell p-5 animate-pulse border border-white/5 flex flex-col justify-between min-h-[160px]">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="h-5 bg-white/5 rounded-full w-14"></div>
+                  <div className="h-4 bg-white/5 rounded w-4"></div>
+                </div>
+                <div className="h-5 bg-white/5 rounded w-3/4 mb-2"></div>
+                <div className="h-4 bg-white/5 rounded w-1/2"></div>
+              </div>
+              <div className="mt-6 pt-4 border-t border-[rgba(255,255,255,0.05)]">
+                <div className="h-3 bg-white/5 rounded w-2/3"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {loading && activeTab === "requests" && (
+        <div className="glass-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-[rgba(255,255,255,0.08)] bg-white/5">
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[#93A8C7]">Pelanggan</th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[#93A8C7]">Jadwal Request</th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[#93A8C7]">Status</th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[#93A8C7]">Dibuat Pada</th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[#93A8C7]">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[rgba(255,255,255,0.05)]">
+                {Array.from({ length: 4 }).map((_, idx) => (
+                  <tr key={idx} className="animate-pulse border-b border-[rgba(255,255,255,0.04)]">
+                    <td className="px-6 py-4">
+                      <div className="h-4 bg-white/5 rounded w-24 mb-1.5"></div>
+                      <div className="h-3 bg-white/5 rounded w-32"></div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="h-4 bg-white/5 rounded w-36 mb-1.5"></div>
+                      <div className="h-3 bg-white/5 rounded w-20"></div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="h-5 bg-white/5 rounded-full w-14"></div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="h-3 bg-white/5 rounded w-24"></div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-2">
+                        <div className="h-8 w-14 bg-white/5 rounded-lg"></div>
+                        <div className="h-8 w-14 bg-white/5 rounded-lg"></div>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -239,7 +322,7 @@ export default function ConsultationsPage() {
                 <div className="mt-6 pt-4 border-t border-[rgba(255,255,255,0.05)]">
                   <div className="flex items-center gap-2 text-xs text-[#56D6FF] opacity-70">
                     <Package className="w-3 h-3" />
-                    <span>Layanan Konsultasi</span>
+                    <span>{slot.catalogItem?.nama || slot.product?.nama || "Layanan Konsultasi"}</span>
                   </div>
                 </div>
               </div>

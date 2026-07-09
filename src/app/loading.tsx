@@ -5,7 +5,7 @@ export default function Loading() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#06111f] relative overflow-hidden">
       {/* Background Orbs */}
       <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-[#56D6FF] opacity-[0.03] blur-[120px]" />
-      <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-[#9D8CFF] opacity-[0.03] blur-[120px]" />
+      <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-[#FFBF69] opacity-[0.03] blur-[120px]" />
       
       <div className="relative z-10 flex flex-col items-center gap-6">
         <div className="relative w-16 h-16">
@@ -20,7 +20,7 @@ export default function Loading() {
           <div className="flex gap-1">
             <div className="w-1.5 h-1.5 rounded-full bg-[#56D6FF] animate-bounce [animation-delay:-0.3s]" />
             <div className="w-1.5 h-1.5 rounded-full bg-[#67A7FF] animate-bounce [animation-delay:-0.15s]" />
-            <div className="w-1.5 h-1.5 rounded-full bg-[#9D8CFF] animate-bounce" />
+            <div className="w-1.5 h-1.5 rounded-full bg-[#FFBF69] animate-bounce" />
           </div>
         </div>
       </div>

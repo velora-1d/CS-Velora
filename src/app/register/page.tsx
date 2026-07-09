@@ -1,12 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Lock, Mail, Store, Eye, EyeOff, CheckCircle2, Bot, BarChart3, ShieldCheck, Zap, User, CreditCard, Tag, HelpCircle, Calendar, Database, Brain } from "lucide-react";
-import Image from "next/image";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [logoUrl, setLogoUrl] = useState<string>("/logo-velora.png");
+
+  useEffect(() => {
+    const fetchBranding = async () => {
+      try {
+        const res = await fetch("/api/branding");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.system_login_logo) setLogoUrl(data.system_login_logo);
+        }
+      } catch { /* fallback to default */ }
+    };
+    fetchBranding();
+  }, []);
   const [namaToko, setNamaToko] = useState("");
   const [namaPemilik, setNamaPemilik] = useState("");
   const [email, setEmail] = useState("");
@@ -62,7 +75,7 @@ export default function RegisterPage() {
       desc: "AI ingat konteks & kenali pelanggan baru vs lama."
     },
     {
-      icon: <BarChart3 className="w-5 h-5 text-[#9D8CFF]" />,
+      icon: <BarChart3 className="w-5 h-5 text-[#FFBF69]" />,
       title: "Analitik Brutal",
       desc: "Pantau bisnis dengan grafik & KPI real-time."
     },
@@ -72,7 +85,7 @@ export default function RegisterPage() {
       desc: "Dukungan gateway & konfirmasi manual aman."
     },
     {
-      icon: <Tag className="w-5 h-5 text-[#A78BFA]" />,
+      icon: <Tag className="w-5 h-5 text-[#FFBF69]" />,
       title: "Promo & Voucher",
       desc: "Tingkatkan penjualan dengan diskon dinamis."
     },
@@ -117,8 +130,9 @@ export default function RegisterPage() {
         
         <div className="relative z-10 w-full flex flex-col justify-between p-12 xl:p-20">
           <div className="flex items-center gap-4">
-            <div className="flex shrink-0 items-center justify-center">
-              <Image src="/logo-velora.png" alt="Velora Logo" width={48} height={48} className="object-contain" priority />
+            <div className="flex shrink-0 items-center justify-center w-12 h-12 overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={logoUrl} alt="Velora Logo" className="max-w-full max-h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).src = "/logo-velora.png"; }} />
             </div>
             <div>
               <h1 className="text-2xl font-display font-bold text-[#F1F5F9] tracking-tight">Velora ID</h1>
@@ -128,7 +142,7 @@ export default function RegisterPage() {
 
           <div className="max-w-md">
             <h2 className="text-4xl xl:text-5xl font-display font-bold text-[#F1F5F9] leading-tight mb-8">
-              Mulai Langkah <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#56D6FF] via-[#67A7FF] to-[#9D8CFF]">Digital Anda</span> Hari Ini.
+              Mulai Langkah <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#56D6FF] via-[#67A7FF] to-[#FFBF69]">Digital Anda</span> Hari Ini.
             </h2>
             
             <div className="grid grid-cols-2 gap-x-8 gap-y-10">
@@ -156,13 +170,14 @@ export default function RegisterPage() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 md:p-12 relative overflow-hidden">
         {/* Decorative elements for mobile */}
         <div className="lg:hidden absolute top-[-10%] right-[-10%] w-[300px] h-[300px] bg-[#3B82F6]/10 blur-[100px] rounded-full" />
-        <div className="lg:hidden absolute bottom-[-10%] left-[-10%] w-[300px] h-[300px] bg-[#9D8CFF]/10 blur-[100px] rounded-full" />
+        <div className="lg:hidden absolute bottom-[-10%] left-[-10%] w-[300px] h-[300px] bg-[#FFBF69]/10 blur-[100px] rounded-full" />
 
         <div className="w-full max-w-md space-y-8 relative z-10">
           <div className="lg:hidden text-center mb-10">
             <div className="flex justify-center mb-4">
-              <div className="flex items-center justify-center">
-                <Image src="/logo-velora.png" alt="Velora Logo" width={80} height={80} className="object-contain" priority />
+              <div className="flex items-center justify-center w-20 h-20 overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logoUrl} alt="Velora Logo" className="max-w-full max-h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).src = "/logo-velora.png"; }} />
               </div>
             </div>
             <h1 className="text-3xl font-display font-bold text-[#F1F5F9]">Velora ID</h1>

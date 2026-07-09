@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Instrument_Sans, Syne } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "@/components/providers/auth-provider";
+import { Toaster } from "sonner";
 
 const bodyFont = Instrument_Sans({
   variable: "--font-body",
@@ -28,9 +29,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="id">
-      <body className={`${bodyFont.variable} ${displayFont.variable} antialiased`}>
-        <AuthProvider>{children}</AuthProvider>
+    <html lang="id" suppressHydrationWarning>
+      <body className={`${bodyFont.variable} ${displayFont.variable} antialiased`} suppressHydrationWarning>
+        <AuthProvider>
+          {children}
+          <Toaster richColors position="top-right" />
+        </AuthProvider>
       </body>
     </html>
   );

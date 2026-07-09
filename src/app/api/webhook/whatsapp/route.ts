@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { tenants, chatLogs, waSessions } from "@/db/schema";
+import { tenants, chatLogs, waSessions, clients } from "@/db/schema";
 import { eq, or, and, isNotNull, gte, desc } from "drizzle-orm";
 import { sendWhatsAppMessage, setWhatsAppPresence } from "@/lib/whatsapp";
 import { getAiCompletion } from "@/lib/ai";
@@ -224,11 +224,26 @@ export async function POST(req: Request) {
       }
     }
 
+    // Get display name for contact (either from webhook payload or clients table lookup)
+    let displayName = messageData.name || null;
+    if (!displayName) {
+      const client = await db.query.clients.findFirst({
+        where: and(
+          eq(clients.tenantId, tenant.id),
+          eq(clients.nomor, messageData.from)
+        )
+      });
+      if (client && client.nama) {
+        displayName = client.nama;
+      }
+    }
+
     // 4. Handle fromMe (Manual Reply from Admin's phone)
     if (messageData.isFromMe) {
       await db.insert(chatLogs).values({
         tenantId: tenant.id,
         fromNumber: messageData.from,
+        fromName: displayName,
         message: "", // Kosong karena ini adalah balasan
         reply: messageData.body,
         isAi: false,
@@ -241,6 +256,7 @@ export async function POST(req: Request) {
     await db.insert(chatLogs).values({
       tenantId: tenant.id,
       fromNumber: messageData.from,
+      fromName: displayName,
       message: messageData.body,
       isAi: false,
       isHuman: true,
@@ -315,9 +331,10 @@ export async function POST(req: Request) {
 Balas HANYA dengan satu kata persis: "sales" atau "support".`;
         const baseUrl = process.env.SEED_AI_URL || "https://ai.sumopod.com/v1";
         const apiKey = process.env.SEED_AI_API_KEY;
+        const routerModel = process.env.SEED_AI_MODEL || "gpt-4o-mini";
         const routerRes = await fetch(`${baseUrl}/chat/completions`, {
           method: "POST", headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: "gpt-4o-mini", messages: [{role: "system", content: routerPrompt}, {role: "user", content: messageData.body}], temperature: 0 })
+          body: JSON.stringify({ model: routerModel, messages: [{role: "system", content: routerPrompt}, {role: "user", content: messageData.body}], temperature: 0 })
         });
         if (routerRes.ok) {
           const routerData = await routerRes.json();

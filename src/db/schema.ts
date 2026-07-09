@@ -9,6 +9,9 @@ import {
   date,
   time,
   pgEnum,
+  jsonb,
+  index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -28,10 +31,46 @@ export const announcementPriorityEnum = pgEnum("announcement_priority", ["low", 
 export const promoTypeEnum = pgEnum("promo_type", ["produk", "voucher"]);
 export const diskonTypeEnum = pgEnum("diskon_type", ["persen", "nominal"]);
 export const promoTargetTypeEnum = pgEnum("promo_target_type", ["all", "pilihan"]);
+export const catalogFieldTypeEnum = pgEnum("catalog_field_type", [
+  "text",
+  "textarea",
+  "number",
+  "date",
+  "select",
+  "toggle",
+  "url",
+  "upload",
+]);
+
+export type CatalogFieldTemplate = {
+  label: string;
+  fieldKey: string;
+  fieldType: (typeof catalogFieldTypeEnum.enumValues)[number];
+  isRequired?: boolean;
+  isSystem?: boolean;
+  options?: string[];
+};
+
+// Tenant business templates for dynamic catalog labels and default fields.
+export const tenantTypes = pgTable("tenant_types", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  key: varchar("key", { length: 50 }).notNull(),
+  tenantId: uuid("tenant_id"),
+  name: varchar("name", { length: 100 }).notNull(),
+  catalogLabel: varchar("catalog_label", { length: 100 }).notNull(),
+  orderLabel: varchar("order_label", { length: 100 }).notNull(),
+  fieldTemplate: jsonb("field_template").$type<CatalogFieldTemplate[]>().notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
 
 // Tenants table
 export const tenants = pgTable("tenants", {
   id: uuid("id").primaryKey().defaultRandom(),
+  tenantTypeId: uuid("tenant_type_id").references(() => tenantTypes.id),
+  catalogLabel: varchar("catalog_label", { length: 100 }).notNull().default("Produk"),
+  orderLabel: varchar("order_label", { length: 100 }).notNull().default("Pesanan"),
   namaToko: varchar("nama_toko", { length: 255 }).notNull(),
   deskripsi: text("deskripsi"),
   logoUrl: varchar("logo_url", { length: 500 }),
@@ -51,6 +90,43 @@ export const tenants = pgTable("tenants", {
   maxWaAccounts: integer("max_wa_accounts").notNull().default(1),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export type CatalogItemData = Record<string, string | number | boolean | null | string[]>;
+
+// Dynamic catalog field configuration per tenant.
+export const catalogFields = pgTable("catalog_fields", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+  label: varchar("label", { length: 120 }).notNull(),
+  fieldKey: varchar("field_key", { length: 80 }).notNull(),
+  fieldType: catalogFieldTypeEnum("field_type").notNull(),
+  options: jsonb("options").$type<string[]>(),
+  isRequired: boolean("is_required").notNull().default(false),
+  isSystem: boolean("is_system").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_catalog_fields_tenant_id").on(table.tenantId),
+  uniqueIndex("idx_catalog_fields_tenant_key").on(table.tenantId, table.fieldKey),
+]);
+
+// Dynamic catalog items. Legacy products stay until all dependencies migrate.
+export const catalogItems = pgTable("catalog_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+  nama: varchar("nama", { length: 255 }).notNull(),
+  harga: integer("harga"),
+  aktif: boolean("aktif").notNull().default(true),
+  data: jsonb("data").$type<CatalogItemData>().notNull().default({}),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_catalog_items_tenant_id").on(table.tenantId),
+  index("idx_catalog_items_tenant_active").on(table.tenantId, table.aktif),
+  index("idx_catalog_items_tenant_created").on(table.tenantId, table.createdAt),
+]);
 
 // WA Sessions table (Multi-WA support)
 export const waSessions = pgTable("wa_sessions", {
@@ -114,11 +190,12 @@ export const promos = pgTable("promos", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// Junction table for promos and products
+// Junction table for promos and products/catalog items
 export const promoProducts = pgTable("promo_products", {
   id: uuid("id").primaryKey().defaultRandom(),
   promoId: uuid("promo_id").references(() => promos.id, { onDelete: 'cascade' }).notNull(),
-  productId: uuid("product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(),
+  productId: uuid("product_id").references(() => products.id, { onDelete: 'cascade' }),
+  catalogItemId: uuid("catalog_item_id").references(() => catalogItems.id, { onDelete: 'cascade' }),
 });
 
 // Payment methods table
@@ -151,7 +228,8 @@ export const orders = pgTable("orders", {
   tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
   fromNumber: varchar("from_number", { length: 30 }).notNull(),
   fromName: varchar("from_name", { length: 255 }),
-  productId: uuid("product_id").references(() => products.id).notNull(),
+  productId: uuid("product_id").references(() => products.id),
+  catalogItemId: uuid("catalog_item_id").references(() => catalogItems.id),
   jumlah: integer("jumlah").notNull(),
   hargaAsli: integer("harga_asli").notNull(),       // harga sebelum diskon
   diskonAmount: integer("diskon_amount").notNull().default(0), // nominal diskon diterapkan
@@ -168,7 +246,8 @@ export const orders = pgTable("orders", {
 export const consultationSlots = pgTable("consultation_slots", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
-  productId: uuid("product_id").references(() => products.id).notNull(),
+  productId: uuid("product_id").references(() => products.id),
+  catalogItemId: uuid("catalog_item_id").references(() => catalogItems.id),
   tanggal: date("tanggal").notNull(),
   jamMulai: time("jam_mulai").notNull(),
   jamSelesai: time("jam_selesai").notNull(),
@@ -182,7 +261,8 @@ export const consultationRequests = pgTable("consultation_requests", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
   fromNumber: varchar("from_number", { length: 30 }).notNull(),
-  productId: uuid("product_id").references(() => products.id).notNull(),
+  productId: uuid("product_id").references(() => products.id),
+  catalogItemId: uuid("catalog_item_id").references(() => catalogItems.id),
   jadwalRequest: text("jadwal_request").notNull(),
   status: requestStatusEnum("status").notNull().default("pending"),
   catatanAdmin: text("catatan_admin"),
@@ -211,9 +291,12 @@ export const aiSettings = pgTable("ai_settings", {
   tenantId: uuid("tenant_id").references(() => tenants.id).notNull().unique(),
   systemPrompt: text("system_prompt").notNull(),
   namaAgent: varchar("nama_agent", { length: 100 }).notNull(),
-  model: varchar("model", { length: 50 }).notNull().default("gpt-4o"),
+  model: varchar("model", { length: 100 }).notNull().default("gpt-4o"),
   tone: aiToneEnum("tone").notNull().default("semi-formal"),
   aktif: boolean("aktif").notNull().default(true),
+  provider: varchar("provider", { length: 50 }).notNull().default("openai"),
+  apiKey: text("api_key"),
+  baseUrl: text("base_url"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -286,9 +369,26 @@ export const ownerPaymentInfo = pgTable("owner_payment_info", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Owner Settings table for general platform configuration (e.g. security PIN)
+export const ownerSettings = pgTable("owner_settings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  key: varchar("key", { length: 100 }).notNull().unique(),
+  value: text("value").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Type exports
+export type OwnerSetting = typeof ownerSettings.$inferSelect;
+export type NewOwnerSetting = typeof ownerSettings.$inferInsert;
+export type TenantType = typeof tenantTypes.$inferSelect;
+export type NewTenantType = typeof tenantTypes.$inferInsert;
 export type Tenant = typeof tenants.$inferSelect;
 export type NewTenant = typeof tenants.$inferInsert;
+export type CatalogField = typeof catalogFields.$inferSelect;
+export type NewCatalogField = typeof catalogFields.$inferInsert;
+export type CatalogItem = typeof catalogItems.$inferSelect;
+export type NewCatalogItem = typeof catalogItems.$inferInsert;
 export type WaSession = typeof waSessions.$inferSelect;
 export type NewWaSession = typeof waSessions.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -327,6 +427,34 @@ export type OwnerPaymentInfo = typeof ownerPaymentInfo.$inferSelect;
 export type NewOwnerPaymentInfo = typeof ownerPaymentInfo.$inferInsert;
 
 // Relations
+export const tenantTypesRelations = relations(tenantTypes, ({ many }) => ({
+  tenants: many(tenants),
+}));
+
+export const tenantsRelations = relations(tenants, ({ one, many }) => ({
+  tenantType: one(tenantTypes, {
+    fields: [tenants.tenantTypeId],
+    references: [tenantTypes.id],
+  }),
+  catalogFields: many(catalogFields),
+  catalogItems: many(catalogItems),
+  subscriptions: many(subscriptions),
+}));
+
+export const catalogFieldsRelations = relations(catalogFields, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [catalogFields.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export const catalogItemsRelations = relations(catalogItems, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [catalogItems.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
 export const promosRelations = relations(promos, ({ many }) => ({
   promoProducts: many(promoProducts),
 }));
@@ -340,4 +468,55 @@ export const promoProductsRelations = relations(promoProducts, ({ one }) => ({
     fields: [promoProducts.productId],
     references: [products.id],
   }),
+  catalogItem: one(catalogItems, {
+    fields: [promoProducts.catalogItemId],
+    references: [catalogItems.id],
+  }),
 }));
+
+export const ordersRelations = relations(orders, ({ one }) => ({
+  product: one(products, {
+    fields: [orders.productId],
+    references: [products.id],
+  }),
+  catalogItem: one(catalogItems, {
+    fields: [orders.catalogItemId],
+    references: [catalogItems.id],
+  }),
+  promo: one(promos, {
+    fields: [orders.promoId],
+    references: [promos.id],
+  }),
+}));
+
+export const consultationSlotsRelations = relations(consultationSlots, ({ one }) => ({
+  product: one(products, {
+    fields: [consultationSlots.productId],
+    references: [products.id],
+  }),
+  catalogItem: one(catalogItems, {
+    fields: [consultationSlots.catalogItemId],
+    references: [catalogItems.id],
+  }),
+}));
+
+export const consultationRequestsRelations = relations(consultationRequests, ({ one }) => ({
+  product: one(products, {
+    fields: [consultationRequests.productId],
+    references: [products.id],
+  }),
+  catalogItem: one(catalogItems, {
+    fields: [consultationRequests.catalogItemId],
+    references: [catalogItems.id],
+  }),
+}));
+
+export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [subscriptions.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+
+

@@ -100,10 +100,20 @@ export default function ChatsPage() {
 
       <div className="space-y-2">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-[#93A8C7]">
-            <Loader2 className="h-10 w-10 animate-spin mb-4 text-[#56D6FF]" />
-            <p>Memuat riwayat chat...</p>
-          </div>
+          Array.from({ length: 4 }).map((_, idx) => (
+            <div key={idx} className="glass-card w-full p-5 animate-pulse border border-white/5 space-y-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4 min-w-0 flex-1">
+                  <div className="h-12 w-12 rounded-full bg-white/5 shrink-0"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-white/5 rounded w-1/3"></div>
+                    <div className="h-3 bg-white/5 rounded w-1/2"></div>
+                  </div>
+                </div>
+                <div className="h-3 bg-white/5 rounded w-16 shrink-0"></div>
+              </div>
+            </div>
+          ))
         ) : filtered.length === 0 ? (
           <div className="glass-card py-20 text-center">
             <MessageCircle className="mx-auto h-12 w-12 text-[#334155] mb-4" />

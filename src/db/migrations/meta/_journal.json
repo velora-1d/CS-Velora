@@ -8,6 +8,20 @@
       "when": 1773714000675,
       "tag": "0000_aberrant_omega_sentinel",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783499043403,
+      "tag": "0001_flawless_ben_grimm",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783500090532,
+      "tag": "0002_naive_green_goblin",
+      "breakpoints": true
     }
   ]
 }

@@ -94,6 +94,7 @@ export default function OwnerReportsPage() {
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               className="bg-transparent border-none text-xs text-[#F1F5F9] focus:outline-none focus:ring-0 [color-scheme:dark]"
+              style={{ direction: "rtl", textAlign: "left" }}
             />
           </div>
           <div className="flex items-center gap-2 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-xl px-4 py-2">
@@ -103,6 +104,7 @@ export default function OwnerReportsPage() {
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               className="bg-transparent border-none text-xs text-[#F1F5F9] focus:outline-none focus:ring-0 [color-scheme:dark]"
+              style={{ direction: "rtl", textAlign: "left" }}
             />
           </div>
           <div className="h-6 w-px bg-white/10 mx-1 hidden md:block" />

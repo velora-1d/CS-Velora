@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import Link from "next/link";
 import {
   Package,
   Plus,
@@ -10,127 +12,324 @@ import {
   ToggleLeft,
   ToggleRight,
   Boxes,
-  Link2,
   Loader2,
+  Settings,
+  FileText,
+  Upload,
+  X,
+  Save,
+  Sparkles,
 } from "lucide-react";
 
-type ProductType = "fisik" | "digital" | "jasa" | "konsultasi";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { CustomDropdown } from "@/components/ui/custom-dropdown";
 
-type ProductItem = {
+type FieldType = "text" | "textarea" | "number" | "date" | "select" | "toggle" | "url" | "upload";
+
+interface CatalogField {
+  id: string;
+  label: string;
+  fieldKey: string;
+  fieldType: FieldType;
+  options: string[] | null;
+  isRequired: boolean;
+  isSystem: boolean;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+interface CatalogItem {
   id: string;
   nama: string;
-  tipe: ProductType;
-  harga: number;
-  hargaCoret: number | null;
-  diskonPersen: number | null;
+  harga: number | null;
   aktif: boolean;
-  stok: number | null;
-};
+  data: Record<string, unknown>;
+  createdAt: string;
+}
 
-type ProductForm = {
-  nama: string;
-  tipe: ProductType;
-  harga: string;
-  hargaCoret: string;
-  diskonPersen: string;
-  deskripsi: string;
-  stok: string;
-  durasi: string;
-  linkShopee: string;
-  linkTiktok: string;
-  linkDelivery: string;
-};
+interface PaginationMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
 
-// Hapus data statis
+interface TenantType {
+  id: string;
+  key: string;
+  name: string;
+  catalogLabel: string;
+  orderLabel: string;
+}
 
-const initialFormData: ProductForm = {
-  nama: "",
-  tipe: "fisik",
-  harga: "",
-  hargaCoret: "",
-  diskonPersen: "",
-  deskripsi: "",
-  stok: "",
-  durasi: "",
-  linkShopee: "",
-  linkTiktok: "",
-  linkDelivery: "",
-};
+export default function CatalogItemsPage() {
+  const [catalogLabel, setCatalogLabel] = useState("Produk");
+  const [fields, setFields] = useState<CatalogField[]>([]);
+  const [items, setItems] = useState<CatalogItem[]>([]);
+  const [pagination, setPagination] = useState<PaginationMeta>({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 1,
+  });
 
-const tipeLabels: Record<ProductType, string> = {
-  fisik: "Fisik",
-  digital: "Digital",
-  jasa: "Jasa",
-  konsultasi: "Konsultasi",
-};
-
-const tipeColors: Record<ProductType, string> = {
-  fisik: "bg-[#67A7FF]/10 text-[#67A7FF]",
-  digital: "bg-[#4ADE80]/10 text-[#4ADE80]",
-  jasa: "bg-[#FFBF69]/10 text-[#FFBF69]",
-  konsultasi: "bg-[#C4A0FF]/10 text-[#C4A0FF]",
-};
-
-export default function ProductsPage() {
-  const [products, setProducts] = useState<ProductItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filterTipe, setFilterTipe] = useState<"all" | ProductType>("all");
+  const [filterActive, setFilterActive] = useState<"all" | "true" | "false">("all");
+  const [page, setPage] = useState(1);
   const [showDrawer, setShowDrawer] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
-  const [formData, setFormData] = useState<ProductForm>(initialFormData);
+  const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
+  
+  // Dynamic form state maps fieldKey to its value
+  const [formValues, setFormValues] = useState<Record<string, unknown>>({});
   const [isSaving, setIsSaving] = useState(false);
 
+  // Tenant type states
+  const [tenantTypes, setTenantTypes] = useState<TenantType[]>([]);
+  const [tenantTypeId, setTenantTypeId] = useState("");
+  const [savingType, setSavingType] = useState(false);
+
+  // Custom Template states
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateCatalogLabel, setNewTemplateCatalogLabel] = useState("");
+  const [newTemplateOrderLabel, setNewTemplateOrderLabel] = useState("");
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+
+  // --- Confirm Modal State ---
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void;
+    isDanger?: boolean;
+  }>({
+    isOpen: false,
+    message: "",
+    onConfirm: () => {},
+  });
+
+  const showConfirm = (options: {
+    title?: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void;
+    isDanger?: boolean;
+  }) => {
+    setConfirmConfig({
+      isOpen: true,
+      ...options,
+    });
+  };
+
+  const closeConfirm = () => {
+    setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+  };
+
   useEffect(() => {
-    fetchProducts();
+    fetchProfile();
+    fetchFields();
+    fetchTenantTypes();
   }, []);
 
-  const fetchProducts = async () => {
+  // Fetch catalog items when search, filters, or page changes
+  useEffect(() => {
+    fetchItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, filterActive, page]);
+
+  const fetchProfile = async () => {
     try {
-      setLoading(true);
-      const res = await fetch("/api/products");
+      const res = await fetch("/api/profile");
       const data = await res.json();
       if (res.ok) {
-        setProducts(data);
-      } else {
-        toast.error("Gagal memuat produk: " + (data.error || "Unknown error"));
+        if (data.catalogLabel) setCatalogLabel(data.catalogLabel);
+        if (data.tenantTypeId) setTenantTypeId(data.tenantTypeId);
       }
-    } catch (error) {
-      toast.error("Gagal memuat data produk.");
+    } catch {
+      console.error("Gagal memuat profil tenant");
+    }
+  };
+
+  const fetchTenantTypes = async () => {
+    try {
+      const res = await fetch("/api/tenant-types");
+      if (res.ok) {
+        const data = await res.json();
+        setTenantTypes(data);
+      }
+    } catch {
+      console.error("Gagal memuat tipe bisnis");
+    }
+  };
+
+  const handleChangeTenantType = async (newTypeId: string) => {
+    if (!newTypeId || newTypeId === tenantTypeId) return;
+    const selectedType = tenantTypes.find(t => t.id === newTypeId);
+    if (!selectedType) return;
+
+    showConfirm({
+      title: "Ubah Template Bisnis",
+      message: `Ubah ke "${selectedType.name}"? Field katalog kustom Anda akan direset sesuai template baru.`,
+      confirmLabel: "Ya, Ubah",
+      cancelLabel: "Batal",
+      isDanger: true,
+      onConfirm: async () => {
+        setSavingType(true);
+        try {
+          const profileRes = await fetch("/api/profile");
+          const profileData = await profileRes.json();
+
+          const res = await fetch("/api/profile", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...profileData,
+              tenantTypeId: newTypeId,
+              catalogLabel: selectedType.catalogLabel,
+              orderLabel: selectedType.orderLabel,
+            }),
+          });
+
+          if (res.ok) {
+            setTenantTypeId(newTypeId);
+            setCatalogLabel(selectedType.catalogLabel);
+            await fetchFields();
+            toast.success(`Template "${selectedType.name}" berhasil diterapkan!`);
+            window.dispatchEvent(new Event("profile-updated"));
+          } else {
+            const err = await res.json();
+            toast.error(err.error || "Gagal mengubah template bisnis.");
+          }
+        } catch {
+          toast.error("Terjadi kesalahan.");
+        } finally {
+          setSavingType(false);
+        }
+      },
+    });
+  };
+
+  const handleSaveCustomTemplate = async () => {
+    if (!newTemplateName.trim()) {
+      toast.error("Nama template wajib diisi");
+      return;
+    }
+    setIsSavingTemplate(true);
+    try {
+      const res = await fetch("/api/tenant-types", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newTemplateName.trim(),
+          catalogLabel: newTemplateCatalogLabel.trim() || "Produk",
+          orderLabel: newTemplateOrderLabel.trim() || "Pesanan",
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`Template kustom "${data.name}" berhasil dibuat!`);
+        setShowTemplateModal(false);
+        setNewTemplateName("");
+        setNewTemplateCatalogLabel("");
+        setNewTemplateOrderLabel("");
+        // Reload template types
+        await fetchTenantTypes();
+        // Set active template to this new one
+        setTenantTypeId(data.id);
+      } else {
+        toast.error(data.error || "Gagal menyimpan template kustom.");
+      }
+    } catch {
+      toast.error("Terjadi kesalahan.");
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
+
+  const fetchFields = async () => {
+    try {
+      const res = await fetch("/api/catalog-fields");
+      const data = await res.json();
+      if (res.ok) {
+        // Filter out inactive fields for form layout, but keep them for reference if needed
+        setFields(data);
+      } else {
+        toast.error("Gagal memuat field katalog: " + (data.error || "Unknown error"));
+      }
+    } catch {
+      toast.error("Gagal memuat konfigurasi field.");
+    }
+  };
+
+  const fetchItems = async () => {
+    try {
+      setLoading(true);
+      const activeFilterQuery = filterActive !== "all" ? `&aktif=${filterActive}` : "";
+      const res = await fetch(
+        `/api/catalog-items?search=${encodeURIComponent(search)}&page=${page}&limit=10${activeFilterQuery}`
+      );
+      const data = await res.json();
+      if (res.ok) {
+        setItems(data.items || []);
+        if (data.pagination) {
+          setPagination(data.pagination);
+        }
+      } else {
+        toast.error("Gagal memuat item katalog: " + (data.error || "Unknown error"));
+      }
+    } catch {
+      toast.error("Gagal memuat item katalog.");
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch = product.nama.toLowerCase().includes(search.toLowerCase());
-    const matchesType = filterTipe === "all" || product.tipe === filterTipe;
-    return matchesSearch && matchesType;
-  });
+  const handleOpenDrawer = (item?: CatalogItem) => {
+    const defaultVals: Record<string, unknown> = {};
 
-  const activeProducts = products.filter((product) => product.aktif).length;
-  const digitalReady = products.filter((product) => product.tipe === "digital").length;
-  const stockTracked = products.filter((product) => product.stok !== null).length;
+    // Get active fields to populate form defaults
+    const activeFields = fields.filter((f) => f.isActive);
 
-  const handleOpenDrawer = (product?: ProductItem) => {
-    if (product) {
-      setEditingProduct(product);
-      setFormData({
-        nama: product.nama,
-        tipe: product.tipe,
-        harga: product.harga.toString(),
-        hargaCoret: product.hargaCoret?.toString() || "",
-        diskonPersen: product.diskonPersen?.toString() || "",
-        deskripsi: "",
-        stok: product.stok?.toString() || "",
-        durasi: "",
-        linkShopee: "",
-        linkTiktok: "",
-        linkDelivery: "",
+    activeFields.forEach((field) => {
+      if (field.fieldType === "toggle") {
+        defaultVals[field.fieldKey] = false;
+      } else {
+        defaultVals[field.fieldKey] = "";
+      }
+    });
+
+    if (item) {
+      setEditingItem(item);
+      // Map system columns
+      defaultVals["nama"] = item.nama;
+      defaultVals["harga"] = item.harga !== null ? item.harga.toString() : "";
+      defaultVals["aktif"] = item.aktif;
+      // Map custom json values
+      activeFields.forEach((field) => {
+        if (!field.isSystem) {
+          const val = item.data[field.fieldKey];
+          defaultVals[field.fieldKey] = val !== undefined && val !== null ? val : "";
+        }
       });
+      setFormValues(defaultVals);
     } else {
-      setEditingProduct(null);
-      setFormData(initialFormData);
+      setEditingItem(null);
+      // Initialize new form
+      activeFields.forEach((field) => {
+        if (field.fieldType === "toggle") {
+          defaultVals[field.fieldKey] = field.fieldKey === "aktif" ? true : false;
+        } else if (field.fieldKey === "harga") {
+          defaultVals[field.fieldKey] = "";
+        } else {
+          defaultVals[field.fieldKey] = "";
+        }
+      });
+      setFormValues(defaultVals);
     }
 
     setShowDrawer(true);
@@ -138,92 +337,134 @@ export default function ProductsPage() {
 
   const handleCloseDrawer = () => {
     setShowDrawer(false);
-    setEditingProduct(null);
+    setEditingItem(null);
+    setFormValues({});
+  };
+
+  const handleInputChange = (fieldKey: string, val: unknown) => {
+    setFormValues((curr) => ({
+      ...curr,
+      [fieldKey]: val,
+    }));
   };
 
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      const url = editingProduct ? `/api/products/${editingProduct.id}` : "/api/products";
-      const method = editingProduct ? "PUT" : "POST";
+      const url = editingItem ? `/api/catalog-items/${editingItem.id}` : "/api/catalog-items";
+      const method = editingItem ? "PUT" : "POST";
 
+      // Form validation before sending
+      const activeFields = fields.filter((f) => f.isActive);
+      for (const field of activeFields) {
+        const val = formValues[field.fieldKey];
+        const isEmpty =
+          val === undefined ||
+          val === null ||
+          (typeof val === "string" && val.trim() === "");
+
+        if (field.isRequired && isEmpty) {
+          toast.error(`Field '${field.label}' wajib diisi`);
+          setIsSaving(false);
+          return;
+        }
+      }
+
+      // Format payload (the validator handles nesting in 'data' column, but we can pass a flat object)
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(formValues),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        toast.success(editingProduct ? "Produk diperbarui" : "Produk ditambahkan");
-        fetchProducts();
+        toast.success(editingItem ? `${catalogLabel} diperbarui` : `${catalogLabel} ditambahkan`);
+        fetchItems();
         handleCloseDrawer();
       } else {
         toast.error("Gagal menyimpan: " + (data.error || "Unknown error"));
       }
-    } catch (error) {
-      toast.error("Gagal menyimpan produk.");
+    } catch {
+      toast.error(`Gagal menyimpan ${catalogLabel.toLowerCase()}.`);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleToggle = async (id: string) => {
+  const handleToggleActive = async (id: string) => {
     try {
-      const res = await fetch(`/api/products/${id}/toggle`, {
+      const res = await fetch(`/api/catalog-items/${id}/toggle`, {
         method: "PATCH",
       });
       if (res.ok) {
-        toast.success("Status produk diperbarui");
-        fetchProducts();
+        toast.success("Status item diperbarui");
+        fetchItems();
       } else {
         const data = await res.json();
         toast.error("Gagal mengubah status: " + (data.error || "Unknown error"));
       }
-    } catch (error) {
+    } catch {
       toast.error("Terjadi kesalahan saat mengubah status.");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Yakin ingin menghapus produk ini?")) {
-      try {
-        const res = await fetch(`/api/products/${id}`, {
-          method: "DELETE",
-        });
-        if (res.ok) {
-          toast.success("Produk dihapus");
-          fetchProducts();
-        } else {
-          const data = await res.json();
-          toast.error("Gagal menghapus: " + (data.error || "Unknown error"));
+    showConfirm({
+      title: `Hapus ${catalogLabel}`,
+      message: `Yakin ingin menghapus ${catalogLabel.toLowerCase()} ini?`,
+      confirmLabel: "Hapus",
+      cancelLabel: "Batal",
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/catalog-items/${id}`, {
+            method: "DELETE",
+          });
+          if (res.ok) {
+            toast.success("Item berhasil dihapus");
+            fetchItems();
+          } else {
+            const data = await res.json();
+            toast.error("Gagal menghapus: " + (data.error || "Unknown error"));
+          }
+        } catch {
+          toast.error("Terjadi kesalahan saat menghapus.");
         }
-      } catch (error) {
-        toast.error("Terjadi kesalahan saat menghapus produk.");
       }
-    }
+    });
   };
+
+  // Determine important fields to show in the table columns (excluding system fields)
+  // Let's show up to 2 active custom fields.
+  const activeCustomFields = fields.filter((f) => !f.isSystem && f.isActive).slice(0, 2);
+  const isHargaActive = fields.some((f) => f.fieldKey === "harga" && f.isActive);
+  const isStatusActive = fields.some((f) => f.fieldKey === "aktif" && f.isActive);
+
+  // Statistics counters
+  const totalItemsCount = pagination.total;
+  const customFieldsCount = fields.filter((f) => !f.isSystem && f.isActive).length;
 
   const metricCards = [
     {
-      label: "Katalog aktif",
-      value: activeProducts,
+      label: `Total ${catalogLabel}`,
+      value: totalItemsCount,
       icon: Boxes,
       color: "text-[#56D6FF]",
       bg: "bg-[#56D6FF]/10",
     },
     {
-      label: "Produk digital",
-      value: digitalReady,
-      icon: Link2,
+      label: "Kolom Tambahan Aktif",
+      value: customFieldsCount,
+      icon: Settings,
       color: "text-[#4ADE80]",
       bg: "bg-[#4ADE80]/10",
     },
     {
-      label: "Stok terpantau",
-      value: stockTracked,
-      icon: Package,
+      label: "Format Dinamis",
+      value: fields.length,
+      icon: FileText,
       color: "text-[#FFBF69]",
       bg: "bg-[#FFBF69]/10",
     },
@@ -231,20 +472,21 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Hero Header */}
       <section className="hero-panel px-6 py-7 md:px-8">
         <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
           <div>
-            <span className="section-kicker">Catalog orchestration</span>
+            <span className="section-kicker">Dynamic Catalog Orchestrator</span>
             <h1 className="mt-5 font-display text-4xl font-semibold text-[#F1F5F9] md:text-5xl">
-              Satu panel untuk menata produk fisik, digital, jasa, dan konsultasi.
+              Panel Pengaturan {catalogLabel} Anda.
             </h1>
             <p className="mt-4 max-w-xl text-sm leading-7 text-[#93A8C7] md:text-base">
-              UI ini disusun untuk admin yang butuh cepat: lihat status, filter katalog, lalu edit produk dari drawer tanpa pindah konteks.
+              Kelola katalog bisnis Anda secara dinamis. Tambahkan kolom kustom seperti ukuran, lokasi, tanggal, spesifikasi, dan lainnya untuk melatih asisten AI Anda.
             </p>
           </div>
           <div className="panel-shell p-5">
             <p className="text-xs uppercase tracking-[0.18em] text-[#56D6FF]">
-              Catalog pulse
+              Status Ringkas Katalog
             </p>
             <div className="mt-5 grid grid-cols-3 gap-3">
               {metricCards.map((metric) => (
@@ -261,14 +503,54 @@ export default function ProductsPage() {
         </div>
       </section>
 
+      {/* Template Bisnis Selector */}
+      <div className="glass-card px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-[#56D6FF]/10 border border-[#56D6FF]/20 flex items-center justify-center shrink-0">
+            <Settings className="w-4 h-4 text-[#56D6FF]" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-[#56D6FF] uppercase tracking-wider">Template Bisnis</p>
+            <p className="text-[11px] text-[#64748B] mt-0.5">Pilih template sesuai jenis bisnis Anda — field katalog akan disesuaikan otomatis</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 w-full sm:w-auto min-w-[340px]">
+          <CustomDropdown
+            value={tenantTypeId}
+            onChange={handleChangeTenantType}
+            options={[
+              { value: "", label: savingType ? "Mengubah template..." : "Pilih Template Bisnis..." },
+              ...tenantTypes.map(t => ({ value: t.id, label: t.name })),
+            ]}
+            className="flex-1"
+          />
+          {savingType && <Loader2 className="w-4 h-4 animate-spin text-[#56D6FF] shrink-0" />}
+          
+          <button
+            type="button"
+            onClick={() => {
+              setNewTemplateCatalogLabel(catalogLabel);
+              setNewTemplateOrderLabel("Pesanan");
+              setShowTemplateModal(true);
+            }}
+            className="px-3.5 py-2.5 bg-[#56D6FF]/10 hover:bg-[#56D6FF]/20 border border-[#56D6FF]/20 text-[#56D6FF] rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0"
+            title="Simpan susunan kolom saat ini sebagai template kustom"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            + Template Kustom
+          </button>
+        </div>
+      </div>
+
+      {/* Filter and Configuration Row */}
       <div className="glass-card p-5 md:p-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.18em] text-[#56D6FF]">
-              Filter katalog
+              Filter & Konfigurasi
             </p>
             <p className="mt-2 text-sm text-[#93A8C7]">
-              Cari cepat dan potong daftar berdasarkan tipe produk.
+              Cari {catalogLabel.toLowerCase()} atau ubah struktur formulir input.
             </p>
           </div>
           <div className="flex flex-col gap-3 md:flex-row">
@@ -276,42 +558,55 @@ export default function ProductsPage() {
               <input
                 type="text"
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Cari produk, layanan, atau konsultasi..."
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                placeholder={`Cari nama ${catalogLabel.toLowerCase()}...`}
                 className="app-input"
               />
             </div>
-            <select
-              value={filterTipe}
-              onChange={(event) => setFilterTipe(event.target.value as "all" | ProductType)}
-              className="app-select min-w-[190px]"
+            <CustomDropdown
+              value={filterActive}
+              onChange={(val) => {
+                setFilterActive(val as "all" | "true" | "false");
+                setPage(1);
+              }}
+              options={[
+                { value: "all", label: "Semua Status" },
+                { value: "true", label: "Aktif" },
+                { value: "false", label: "Nonaktif" },
+              ]}
+              className="min-w-[190px]"
+            />
+            <Link href="/catalog-fields" className="app-button-secondary whitespace-nowrap flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Kustomisasi Formulir
+            </Link>
+            <button
+              onClick={() => handleOpenDrawer()}
+              className="app-button-primary whitespace-nowrap"
             >
-              <option value="all">Semua Tipe</option>
-              <option value="fisik">Fisik</option>
-              <option value="digital">Digital</option>
-              <option value="jasa">Jasa</option>
-              <option value="konsultasi">Konsultasi</option>
-            </select>
-            <button onClick={() => handleOpenDrawer()} className="app-button-primary whitespace-nowrap">
               <Plus className="h-4 w-4" />
-              Tambah Produk
+              Tambah {catalogLabel}
             </button>
           </div>
         </div>
       </div>
 
+      {/* Catalog Table */}
       <div className="glass-card overflow-hidden">
         <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.08)] px-6 py-5">
           <div>
             <p className="text-xs uppercase tracking-[0.18em] text-[#56D6FF]">
-              Product matrix
+              {catalogLabel} Matrix
             </p>
             <h2 className="mt-2 font-display text-2xl text-[#F1F5F9]">
-              Katalog terstruktur
+              Daftar {catalogLabel}
             </h2>
           </div>
           <span className="status-pill bg-[#67A7FF]/10 text-[#67A7FF]">
-            {filteredProducts.length} item tampil
+            {pagination.total} item ditemukan
           </span>
         </div>
 
@@ -319,96 +614,134 @@ export default function ProductsPage() {
           <table className="table-shell min-w-full">
             <thead>
               <tr className="border-b border-[rgba(255,255,255,0.08)]">
-                <th className="px-4 py-3 text-left whitespace-nowrap">Produk</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Tipe</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Harga</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Stok</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Status</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">{catalogLabel}</th>
+                {isHargaActive && <th className="px-4 py-3 text-left whitespace-nowrap">Harga</th>}
+                {activeCustomFields.map((field) => (
+                  <th key={field.id} className="px-4 py-3 text-left whitespace-nowrap">
+                    {field.label}
+                  </th>
+                ))}
+                {isStatusActive && <th className="px-4 py-3 text-left whitespace-nowrap">Status</th>}
                 <th className="px-4 py-3 text-right whitespace-nowrap">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <tr key={idx} className="animate-pulse border-b border-[rgba(255,255,255,0.02)]">
+                    <td className="px-4 py-4">
+                      <div className="h-4 bg-white/5 rounded w-36 mb-2"></div>
+                      <div className="h-3 bg-white/5 rounded w-24"></div>
+                    </td>
+                    {activeCustomFields.map((f) => (
+                      <td key={f.id} className="px-4 py-4">
+                        <div className="h-4 bg-white/5 rounded w-28"></div>
+                      </td>
+                    ))}
+                    {isHargaActive && (
+                      <td className="px-4 py-4">
+                        <div className="h-4 bg-white/5 rounded w-20"></div>
+                      </td>
+                    )}
+                    {isStatusActive && (
+                      <td className="px-4 py-4">
+                        <div className="h-5 bg-white/5 rounded-full w-14"></div>
+                      </td>
+                    )}
+                    <td className="px-4 py-4">
+                      <div className="flex justify-end gap-2">
+                        <div className="h-8 w-8 bg-white/5 rounded-lg"></div>
+                        <div className="h-8 w-8 bg-white/5 rounded-lg"></div>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-16 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <Loader2 className="h-8 w-8 animate-spin text-[#56D6FF]" />
-                      <p className="text-[#93A8C7]">Memuat katalog produk...</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : filteredProducts.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-16 text-center text-[#93A8C7]">
-                    Tidak ada produk yang cocok dengan filter saat ini.
+                  <td colSpan={(isHargaActive ? 1 : 0) + (isStatusActive ? 1 : 0) + 2 + activeCustomFields.length} className="px-4 py-16 text-center text-[#93A8C7]">
+                    Tidak ada item yang cocok dengan filter saat ini.
                   </td>
                 </tr>
               ) : (
-                filteredProducts.map((product) => (
-                  <tr key={product.id} className="border-b border-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.02)] transition-colors">
+                items.map((item) => (
+                  <tr
+                    key={item.id}
+                    className="border-b border-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.02)] transition-colors"
+                  >
+                    {/* Item Name & Details */}
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-4">
                         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(255,255,255,0.05)] text-[#93A8C7]">
                           <Package className="h-5 w-5" />
                         </div>
                         <div>
-                          <p className="font-medium text-[#F1F5F9]">{product.nama}</p>
-                          <p className="mt-1 text-sm text-[#69809F]">
-                            Siap muncul di knowledge base bot
+                          <p className="font-medium text-[#F1F5F9]">{item.nama}</p>
+                          <p className="mt-1 text-xs text-[#69809F]">
+                            ID: {item.id.slice(0, 8)}...
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <span className={`status-pill ${tipeColors[product.tipe]}`}>
-                        {tipeLabels[product.tipe]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 text-[#F1F5F9] whitespace-nowrap">
-                      <div className="flex flex-col">
-                        <span className="font-semibold">Rp {product.harga.toLocaleString("id-ID")}</span>
-                        {product.hargaCoret && (
-                          <span className="text-[10px] text-[#69809F] line-through opacity-70">
-                            Rp {product.hargaCoret.toLocaleString("id-ID")}
-                          </span>
-                        )}
-                        {product.diskonPersen && (
-                          <span className="text-[10px] text-[#4ADE80] font-bold">
-                            -{product.diskonPersen}%
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-[#93A8C7] whitespace-nowrap">
-                      <span className="text-xs font-mono">{product.stok !== null ? product.stok : "∞"}</span>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => handleToggle(product.id)}
-                        className={`inline-flex items-center gap-2 transition-colors ${
-                          product.aktif ? "text-[#4ADE80]" : "text-[#69809F]"
-                        }`}
-                      >
-                        {product.aktif ? (
-                          <ToggleRight className="h-5 w-5" />
-                        ) : (
-                          <ToggleLeft className="h-5 w-5" />
-                        )}
-                        <span className="text-[10px] font-bold uppercase tracking-wider">
-                          {product.aktif ? "Aktif" : "Off"}
+
+                    {/* Price */}
+                    {isHargaActive && (
+                      <td className="px-4 py-4 text-[#F1F5F9] whitespace-nowrap">
+                        <span className="font-semibold">
+                          {item.harga !== null ? `Rp ${item.harga.toLocaleString("id-ID")}` : "-"}
                         </span>
-                      </button>
-                    </td>
+                      </td>
+                    )}
+
+                    {/* Custom Fields */}
+                    {activeCustomFields.map((field) => {
+                      const val = item.data[field.fieldKey];
+                      return (
+                        <td key={field.id} className="px-4 py-4 text-[#93A8C7] whitespace-nowrap text-sm">
+                          {val === true ? (
+                            <span className="text-[#4ADE80] font-bold">Ya</span>
+                          ) : val === false ? (
+                            <span className="text-red-400 font-bold">Tidak</span>
+                          ) : val !== undefined && val !== null && val !== "" ? (
+                            String(val)
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                      );
+                    })}
+
+                    {/* Active Status */}
+                    {isStatusActive && (
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => handleToggleActive(item.id)}
+                          className={`inline-flex items-center gap-2 transition-colors ${
+                            item.aktif ? "text-[#4ADE80]" : "text-[#69809F]"
+                          }`}
+                        >
+                          {item.aktif ? (
+                            <ToggleRight className="h-5 w-5" />
+                          ) : (
+                            <ToggleLeft className="h-5 w-5" />
+                          )}
+                          <span className="text-[10px] font-bold uppercase tracking-wider">
+                            {item.aktif ? "Aktif" : "Off"}
+                          </span>
+                        </button>
+                      </td>
+                    )}
+
+                    {/* Actions */}
                     <td className="px-4 py-4">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => handleOpenDrawer(product)}
+                          onClick={() => handleOpenDrawer(item)}
                           className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[rgba(138,180,248,0.12)] text-[#93A8C7] transition-all hover:bg-[rgba(255,255,255,0.05)] hover:text-[#F1F5F9] hover:scale-105"
                         >
                           <Edit className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(product.id)}
+                          onClick={() => handleDelete(item.id)}
                           className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[rgba(255,107,122,0.12)] text-[#93A8C7] transition-all hover:bg-[rgba(255,107,122,0.08)] hover:text-[#FF9DA7] hover:scale-105"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -421,8 +754,32 @@ export default function ProductsPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-[rgba(255,255,255,0.08)] px-6 py-4">
+            <button
+              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              disabled={page === 1}
+              className="app-button-secondary text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Sebelumnya
+            </button>
+            <span className="text-xs text-[#93A8C7]">
+              Halaman {page} dari {pagination.totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(p + 1, pagination.totalPages))}
+              disabled={page === pagination.totalPages}
+              className="app-button-secondary text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Selanjutnya
+            </button>
+          </div>
+        )}
       </div>
 
+      {/* Dynamic Slide-in Editor Drawer */}
       <div
         className={`fixed inset-0 z-50 transition-opacity ${
           showDrawer ? "opacity-100" : "pointer-events-none opacity-0"
@@ -436,17 +793,18 @@ export default function ProductsPage() {
           }`}
         >
           <div className="flex h-full flex-col">
+            {/* Drawer Header */}
             <div className="border-b border-[rgba(255,255,255,0.08)] px-6 py-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs uppercase tracking-[0.18em] text-[#56D6FF]">
-                    Slide-in editor
+                    Dynamic slide-in editor
                   </p>
                   <h2 className="mt-2 font-display text-3xl text-[#F1F5F9]">
-                    {editingProduct ? "Edit Produk" : "Tambah Produk"}
+                    {editingItem ? `Edit ${catalogLabel}` : `Tambah ${catalogLabel}`}
                   </h2>
                   <p className="mt-2 text-sm text-[#93A8C7]">
-                    Form menyesuaikan tipe produk agar admin tetap cepat saat input katalog.
+                    Formulir kustom yang disesuaikan secara otomatis dengan pengaturan bisnis Anda.
                   </p>
                 </div>
                 <button
@@ -458,148 +816,111 @@ export default function ProductsPage() {
               </div>
             </div>
 
+            {/* Dynamic Form Content */}
             <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">
-              <div>
-                <label className="mb-2 block text-sm text-[#93A8C7]">Tipe Produk *</label>
-                <select
-                  value={formData.tipe}
-                  onChange={(event) =>
-                    setFormData((current) => ({
-                      ...current,
-                      tipe: event.target.value as ProductType,
-                    }))
-                  }
-                  className="app-select"
-                >
-                  <option value="fisik">Fisik</option>
-                  <option value="digital">Digital</option>
-                  <option value="jasa">Jasa</option>
-                  <option value="konsultasi">Konsultasi</option>
-                </select>
-              </div>
+              {fields
+                .filter((field) => field.isActive)
+                .map((field) => {
+                  const key = field.fieldKey;
+                  const label = field.label;
+                  const isRequired = field.isRequired;
 
-              <div>
-                <label className="mb-2 block text-sm text-[#93A8C7]">Nama Produk *</label>
-                <input
-                  type="text"
-                  value={formData.nama}
-                  onChange={(event) =>
-                    setFormData((current) => ({ ...current, nama: event.target.value }))
-                  }
-                  className="app-input"
-                  placeholder="Masukkan nama produk"
-                />
-              </div>
+                  return (
+                    <div key={field.id} className="space-y-2">
+                      <label className="block text-sm font-medium text-[#93A8C7]">
+                        {label} {isRequired && <span className="text-red-400">*</span>}
+                      </label>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-2 block text-sm text-[#93A8C7]">Harga Promo *</label>
-                  <input
-                    type="number"
-                    value={formData.harga}
-                    onChange={(event) =>
-                      setFormData((current) => ({ ...current, harga: event.target.value }))
-                    }
-                    className="app-input"
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm text-[#93A8C7]">Harga Coret</label>
-                  <input
-                    type="number"
-                    value={formData.hargaCoret}
-                    onChange={(event) =>
-                      setFormData((current) => ({ ...current, hargaCoret: event.target.value }))
-                    }
-                    className="app-input"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm text-[#93A8C7]">Diskon (%)</label>
-                <input
-                  type="number"
-                  value={formData.diskonPersen}
-                  onChange={(event) =>
-                    setFormData((current) => ({ ...current, diskonPersen: event.target.value }))
-                  }
-                  className="app-input"
-                  placeholder="Contoh: 10"
-                />
-              </div>
-
-              {(formData.tipe === "fisik" || formData.tipe === "digital") && (
-                <div>
-                  <label className="mb-2 block text-sm text-[#93A8C7]">
-                    {formData.tipe === "fisik" ? "Stok" : "Link Delivery"}
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.tipe === "fisik" ? formData.stok : formData.linkDelivery}
-                    onChange={(event) =>
-                      setFormData((current) => ({
-                        ...current,
-                        [formData.tipe === "fisik" ? "stok" : "linkDelivery"]: event.target.value,
-                      }))
-                    }
-                    className="app-input"
-                    placeholder={formData.tipe === "fisik" ? "Jumlah stok" : "https://..."}
-                  />
-                </div>
-              )}
-
-              {(formData.tipe === "jasa" || formData.tipe === "konsultasi") && (
-                <div>
-                  <label className="mb-2 block text-sm text-[#93A8C7]">Durasi</label>
-                  <input
-                    type="text"
-                    value={formData.durasi}
-                    onChange={(event) =>
-                      setFormData((current) => ({ ...current, durasi: event.target.value }))
-                    }
-                    className="app-input"
-                    placeholder="Contoh: 1 jam, 30 menit"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="mb-2 block text-sm text-[#93A8C7]">Link Shopee</label>
-                <input
-                  type="url"
-                  value={formData.linkShopee}
-                  onChange={(event) =>
-                    setFormData((current) => ({ ...current, linkShopee: event.target.value }))
-                  }
-                  className="app-input"
-                  placeholder="https://shopee.co.id/..."
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm text-[#93A8C7]">Link TikTok Shop</label>
-                <input
-                  type="url"
-                  value={formData.linkTiktok}
-                  onChange={(event) =>
-                    setFormData((current) => ({ ...current, linkTiktok: event.target.value }))
-                  }
-                  className="app-input"
-                  placeholder="https://tiktok.com/..."
-                />
-              </div>
+                      {/* Render based on fieldType */}
+                      {field.fieldType === "textarea" ? (
+                        <textarea
+                          value={(formValues[key] as string) || ""}
+                          onChange={(e) => handleInputChange(key, e.target.value)}
+                          className="app-input min-h-[90px] py-2"
+                          placeholder={`Masukkan ${label.toLowerCase()}...`}
+                        />
+                      ) : field.fieldType === "select" ? (
+                        <CustomDropdown
+                          value={(formValues[key] as string) || ""}
+                          onChange={(val) => handleInputChange(key, val)}
+                          options={[
+                            { value: "", label: "Pilih Opsi" },
+                            ...(field.options || []).map((opt) => ({
+                              value: opt,
+                              label: opt,
+                            })),
+                          ]}
+                        />
+                      ) : field.fieldType === "toggle" ? (
+                        <div className="flex items-center gap-3 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleInputChange(key, !formValues[key])}
+                            className={`inline-flex items-center gap-2 transition-colors ${
+                              formValues[key] ? "text-[#4ADE80]" : "text-[#69809F]"
+                            }`}
+                          >
+                            {formValues[key] ? (
+                              <ToggleRight className="h-7 w-7" />
+                            ) : (
+                              <ToggleLeft className="h-7 w-7" />
+                            )}
+                            <span className="text-xs font-semibold uppercase">
+                              {formValues[key] ? "Aktif / Ya" : "Nonaktif / Tidak"}
+                            </span>
+                          </button>
+                        </div>
+                      ) : field.fieldType === "number" ? (
+                        <input
+                          type="number"
+                          value={formValues[key] !== undefined ? (formValues[key] as number) : ""}
+                          onChange={(e) => handleInputChange(key, e.target.value)}
+                          className="app-input"
+                          placeholder="0"
+                        />
+                      ) : field.fieldType === "date" ? (
+                        <input
+                          type="date"
+                          value={(formValues[key] as string) || ""}
+                          onChange={(e) => handleInputChange(key, e.target.value)}
+                          className="app-input"
+                        />
+                      ) : field.fieldType === "url" ? (
+                        <input
+                          type="url"
+                          value={(formValues[key] as string) || ""}
+                          onChange={(e) => handleInputChange(key, e.target.value)}
+                          className="app-input"
+                          placeholder="https://..."
+                        />
+                      ) : field.fieldType === "upload" ? (
+                        <UploadField
+                          value={(formValues[key] as string) || ""}
+                          onChange={(url) => handleInputChange(key, url)}
+                          placeholder={`Unggah ${label.toLowerCase()}...`}
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          value={(formValues[key] as string) || ""}
+                          onChange={(e) => handleInputChange(key, e.target.value)}
+                          className="app-input"
+                          placeholder={`Masukkan ${label.toLowerCase()}...`}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
             </div>
 
+            {/* Drawer Footer */}
             <div className="flex gap-3 border-t border-[rgba(255,255,255,0.08)] px-6 py-5">
               <button onClick={handleCloseDrawer} className="app-button-secondary flex-1">
                 Batal
               </button>
               <button
                 onClick={handleSave}
-                disabled={!formData.nama || !formData.harga || isSaving}
+                disabled={isSaving}
                 className="app-button-primary flex-1 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSaving ? "Menyimpan..." : "Simpan"}
@@ -608,6 +929,238 @@ export default function ProductsPage() {
           </div>
         </div>
       </div>
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmLabel={confirmConfig.confirmLabel}
+        cancelLabel={confirmConfig.cancelLabel}
+        onConfirm={() => {
+          confirmConfig.onConfirm();
+          closeConfirm();
+        }}
+        onCancel={closeConfirm}
+        isDanger={confirmConfig.isDanger}
+      />
+
+      {/* Custom Template Modal */}
+      <CustomTemplateModal
+        isOpen={showTemplateModal}
+        onClose={() => setShowTemplateModal(false)}
+        onSave={handleSaveCustomTemplate}
+        name={newTemplateName}
+        setName={setNewTemplateName}
+        catalogLabel={newTemplateCatalogLabel}
+        setCatalogLabel={setNewTemplateCatalogLabel}
+        orderLabel={newTemplateOrderLabel}
+        setOrderLabel={setNewTemplateOrderLabel}
+        saving={isSavingTemplate}
+      />
     </div>
   );
 }
+
+interface UploadFieldProps {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+}
+
+function UploadField({ value, onChange, placeholder }: UploadFieldProps) {
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok && data.url) {
+        onChange(data.url);
+        toast.success("Berkas berhasil diunggah");
+      } else {
+        toast.error(data.error || "Gagal mengunggah berkas");
+      }
+    } catch {
+      toast.error("Terjadi kesalahan sistem saat mengunggah");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      {value ? (
+        <div className="relative group w-full max-w-[200px] h-[150px] rounded-xl overflow-hidden border border-[rgba(255,255,255,0.08)] bg-white/5 flex items-center justify-center">
+          {value.match(/\.(jpeg|jpg|gif|png|webp|svg)/i) ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={value} alt="Pratinjau" className="w-full h-full object-cover" />
+          ) : (
+            <div className="flex flex-col items-center gap-1 text-[#93A8C7]">
+              <FileText className="h-10 w-10 text-[#56D6FF]" />
+              <span className="text-[10px] truncate max-w-[150px] px-2">{value.split("/").pop()}</span>
+            </div>
+          )}
+          
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-red-600 rounded-lg text-white opacity-0 group-hover:opacity-100 transition-all"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : (
+        <label className="flex flex-col items-center justify-center border border-dashed border-[rgba(255,255,255,0.15)] hover:border-[#56D6FF]/40 bg-white/3 hover:bg-[#56D6FF]/3 rounded-xl p-5 cursor-pointer transition-all group">
+          <input
+            type="file"
+            className="hidden"
+            onChange={handleFileChange}
+            disabled={uploading}
+            accept="image/*,application/pdf"
+          />
+          {uploading ? (
+            <div className="flex flex-col items-center gap-2 text-[#93A8C7]">
+              <Loader2 className="h-6 w-6 animate-spin text-[#56D6FF]" />
+              <span className="text-xs">Mengunggah...</span>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2 text-[#93A8C7] group-hover:text-[#F1F5F9]">
+              <Upload className="h-6 w-6 text-[#69809F] group-hover:text-[#56D6FF] transition-colors" />
+              <span className="text-xs font-medium">{placeholder || "Klik untuk pilih berkas"}</span>
+              <span className="text-[10px] text-[#69809F]">Maks. 5MB (Gambar / PDF)</span>
+            </div>
+          )}
+        </label>
+      )}
+    </div>
+  );
+}
+
+// ─── MODAL TEMPLATE KUSTOM ───────────────────────────────────────────────────
+interface CustomTemplateModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: () => void;
+  name: string;
+  setName: (v: string) => void;
+  catalogLabel: string;
+  setCatalogLabel: (v: string) => void;
+  orderLabel: string;
+  setOrderLabel: (v: string) => void;
+  saving: boolean;
+}
+
+export function CustomTemplateModal({
+  isOpen, onClose, onSave,
+  name, setName,
+  catalogLabel, setCatalogLabel,
+  orderLabel, setOrderLabel,
+  saving
+}: CustomTemplateModalProps) {
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="relative z-10 w-full max-w-md p-6 space-y-6"
+        style={{
+          background: "linear-gradient(160deg, #0D1526 0%, #0A0F1E 100%)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: "24px",
+          boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
+        }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-[#56D6FF]/10 border border-[#56D6FF]/20 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-[#56D6FF]" />
+            </div>
+            <h2 className="text-[#F1F5F9] font-bold text-base">Buat Template Kustom</h2>
+          </div>
+          <button onClick={onClose} className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-[#94A3B8] hover:text-white transition-all">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <p className="text-xs text-[#94A3B8] leading-relaxed">
+          Simpan susunan kolom katalog Anda saat ini sebagai template baru. Anda dapat menerapkannya kembali kapan saja dari menu tipe bisnis.
+        </p>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs text-[#94A3B8] mb-1.5 font-semibold">Nama Template Kustom *</label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              className="w-full px-4 py-2.5 bg-[#0A0F1E] border border-[rgba(255,255,255,0.08)] rounded-xl text-sm text-[#F1F5F9] placeholder-slate-600 focus:outline-none focus:border-[#3B82F6]"
+              placeholder="Cth: Rental Mobil, Kursus Olahraga..."
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-[#94A3B8] mb-1.5 font-semibold">Nama Menu Katalog</label>
+              <input
+                type="text"
+                value={catalogLabel}
+                onChange={e => setCatalogLabel(e.target.value)}
+                className="w-full px-4 py-2.5 bg-[#0A0F1E] border border-[rgba(255,255,255,0.08)] rounded-xl text-sm text-[#F1F5F9] placeholder-slate-600 focus:outline-none focus:border-[#3B82F6]"
+                placeholder="Cth: Mobil, Jasa"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[#94A3B8] mb-1.5 font-semibold">Nama Menu Pesanan</label>
+              <input
+                type="text"
+                value={orderLabel}
+                onChange={e => setOrderLabel(e.target.value)}
+                className="w-full px-4 py-2.5 bg-[#0A0F1E] border border-[rgba(255,255,255,0.08)] rounded-xl text-sm text-[#F1F5F9] placeholder-slate-600 focus:outline-none focus:border-[#3B82F6]"
+                placeholder="Cth: Booking, Order"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-3 pt-2">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.07] text-[#94A3B8] hover:text-white text-xs font-semibold transition-all"
+          >
+            Batal
+          </button>
+          <button
+            onClick={onSave}
+            disabled={saving}
+            className="flex-1 py-2.5 rounded-xl bg-[#3B82F6] hover:bg-[#2563EB] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            {saving ? "Menyimpan..." : "Simpan Template"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+

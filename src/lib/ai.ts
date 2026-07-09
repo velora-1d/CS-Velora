@@ -1,10 +1,144 @@
 import { db } from "@/lib/db";
-import { products, faqs, promos, aiSettings, tenants, paymentMethods, orders, consultationSlots, clients, chatLogs } from "@/db/schema";
+import { products, faqs, promos, aiSettings, tenants, paymentMethods, orders, consultationSlots, clients, chatLogs, catalogItems } from "@/db/schema";
 import { eq, and, asc, gte, desc } from "drizzle-orm";
 
 // In-memory cache untuk context bot per tenant (TTL 5 menit)
 const contextCache = new Map<string, { data: Awaited<ReturnType<typeof _getBotContextRaw>>; expiresAt: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 menit
+
+async function executeTool(
+  toolName: string,
+  args: any,
+  tenantId: string,
+  fromNumber?: string,
+  fromName?: string,
+  context?: any
+): Promise<string> {
+  if (toolName === "escalate_to_human") {
+    try {
+      await db.insert(chatLogs).values({
+        tenantId,
+        fromNumber: fromNumber || "unknown",
+        message: "",
+        reply: `[SISTEM] AI diberhentikan sejenak (Eskalasi Sentimen/Konteks: ${args.reason}). Segera balas secara manual untuk mengambil alih sesi ini.`,
+        isAi: false,
+        isHuman: true, // men-trigger batas waktu cooldown 2 jam
+      });
+      return "Sukses: Obrolan telah dialihkan ke Admin.";
+    } catch (e: any) {
+      console.error("Tool escalate error:", e);
+      return `Error: ${e.message || String(e)}`;
+    }
+  }
+
+  if (toolName === "create_order") {
+    try {
+      let product = await db.query.products.findFirst({ where: eq(products.id, args.product_id) });
+      let isCatalogItem = false;
+      
+      if (!product) {
+        const catalogItem = await db.query.catalogItems.findFirst({ where: eq(catalogItems.id, args.product_id) });
+        if (catalogItem) {
+          isCatalogItem = true;
+          const data = catalogItem.data as Record<string, unknown>;
+          product = {
+            id: catalogItem.id,
+            tenantId: catalogItem.tenantId,
+            nama: catalogItem.nama,
+            harga: catalogItem.harga || 0,
+            aktif: catalogItem.aktif,
+            tipe: (data?.tipe as string) || "fisik",
+            hargaCoret: (data?.hargaCoret as number) || null,
+            diskonPersen: (data?.diskonPersen as number) || null,
+            deskripsi: (data?.deskripsi as string) || null,
+            stok: (data?.stok as number) || null,
+            durasi: (data?.durasi as string) || null,
+            createdAt: catalogItem.createdAt,
+            updatedAt: catalogItem.createdAt,
+          } as any;
+        }
+      }
+      
+      if (!product) {
+        return "Gagal: Produk tidak ditemukan.";
+      }
+
+      const hargaAsli = product.harga * args.jumlah;
+      const today = new Date().toISOString().split("T")[0]; // format YYYY-MM-DD
+
+      // Cari promo aktif yang berlaku untuk produk ini
+      const activePromos = await db.query.promos.findMany({
+        where: and(
+          eq(promos.tenantId, tenantId),
+          eq(promos.aktif, true),
+        ),
+        with: { promoProducts: true },
+      });
+
+      let appliedPromo: typeof activePromos[0] | null = null;
+      let diskonAmount = 0;
+
+      for (const promo of activePromos) {
+        if (today < promo.tanggalMulai || today > promo.tanggalBerakhir) continue;
+        if (promo.minPembelian && hargaAsli < promo.minPembelian) continue;
+        const isTargetAll = promo.targetTipe === "all";
+        const isTargetProduct = (promo as any).promoProducts?.some((pp: any) => 
+          pp.productId === product.id || pp.catalogItemId === product.id
+        );
+        if (!isTargetAll && !isTargetProduct) continue;
+
+        let rawDiskon = 0;
+        if (promo.diskonTipe === "persen") {
+          rawDiskon = Math.floor((hargaAsli * promo.diskonValue) / 100);
+        } else {
+          rawDiskon = promo.diskonValue * args.jumlah;
+        }
+        if (promo.maxPotongan && rawDiskon > promo.maxPotongan) rawDiskon = promo.maxPotongan;
+
+        appliedPromo = promo;
+        diskonAmount = rawDiskon;
+        break;
+      }
+
+      const totalHarga = Math.max(0, hargaAsli - diskonAmount);
+
+      const orderResult = await db.insert(orders).values({
+        tenantId,
+        fromNumber: fromNumber || "unknown",
+        fromName: fromName || null,
+        productId: isCatalogItem ? null : product.id,
+        catalogItemId: isCatalogItem ? product.id : null,
+        jumlah: args.jumlah,
+        hargaAsli,
+        diskonAmount,
+        totalHarga,
+        promoId: appliedPromo?.id || null,
+        alamat: args.alamat || null,
+        status: "pending",
+      }).returning({ id: orders.id });
+
+      const orderId = orderResult[0].id;
+      const diskonInfo = diskonAmount > 0 
+        ? ` (Diskon ${appliedPromo?.judul}: -Rp ${diskonAmount.toLocaleString("id-ID")})` 
+        : "";
+      let replyContent = `Sukses. Order ID: ORD-${orderId.substring(0, 8)}. Harga asli: Rp ${hargaAsli.toLocaleString("id-ID")}${diskonInfo}. Total bayar: Rp ${totalHarga.toLocaleString("id-ID")}. `;
+
+      if (context?.tenant?.pakasirProjectSlug) {
+        const checkoutUrl = `https://app.pakasir.com/pay/${context.tenant.pakasirProjectSlug}/${totalHarga}?order_id=ORD-${orderId}&title=Order-${encodeURIComponent(product.nama.substring(0, 50))}`;
+        replyContent += `Berikan BERITA BAIK ke pelanggan bahwa pesanan berhasil dicatat dan arahkan mereka untuk membayar melalui link berikut: ${checkoutUrl}`;
+      } else {
+        replyContent += `Minta pelanggan mentransfer sesuai instruksi pembayaran yang tersedia.`;
+      }
+
+      return replyContent;
+    } catch (e: any) {
+      console.error("Tool execution error:", e);
+      return `Error: ${e.message || String(e)}`;
+    }
+  }
+
+  return `Gagal: Tool ${toolName} tidak dikenal.`;
+}
 
 export async function getAiCompletion(
   tenantId: string, 
@@ -22,9 +156,12 @@ export async function getAiCompletion(
   const finalSettings = {
     systemPrompt: overrides?.systemPrompt ?? settings?.systemPrompt ?? "You are a helpful assistant.",
     namaAgent: overrides?.namaAgent ?? settings?.namaAgent ?? "Velora",
-    model: overrides?.model ?? settings?.model ?? "gpt-4o",
+    model: overrides?.model ?? settings?.model ?? process.env.SEED_AI_MODEL ?? "gpt-4o",
     tone: overrides?.tone ?? settings?.tone ?? "semi-formal",
     aktif: settings?.aktif ?? true,
+    provider: settings?.provider || "openai",
+    apiKey: settings?.apiKey,
+    baseUrl: settings?.baseUrl,
   };
 
   if (!finalSettings.aktif && !overrides) {
@@ -85,10 +222,46 @@ ATURAN KOMUNIKASI:
 8. PENTING: Jika pengguna terdeteksi emosi, komplain kasar, ngotot, atau terang-terangan meminta bicara dengan admin, panggil fungsi \`escalate_to_human\` agar admin asli mengambil alih, dan berikan balasan penenang pendek seperti "Mohon maaf atas ketidaknyamanan Anda. Mohon ditunggu, tim CS kami akan segera masuk membantu Anda."
 `;
 
-  const baseUrl = process.env.SEED_AI_URL || "https://ai.sumopod.com/v1";
-  const apiKey = process.env.SEED_AI_API_KEY;
+  // Do NOT fallback to global environment keys anymore, only use tenant-specific credentials
+  let apiKey = finalSettings.apiKey;
+  let baseUrl = finalSettings.baseUrl;
 
-  if (!apiKey) throw new Error("SEED_AI_API_KEY is not configured");
+  if (!apiKey || apiKey === "••••••••••••") {
+    console.warn(`[AI] Tenant ${tenantId} has not configured their custom API Key.`);
+    return null; // Silent skip/do not respond if no custom key is configured
+  }
+  
+  if (!baseUrl) {
+    if (finalSettings.provider === "openai") {
+      baseUrl = "https://api.openai.com/v1";
+    } else if (finalSettings.provider === "anthropic") {
+      baseUrl = "https://api.anthropic.com/v1";
+    } else {
+      console.warn(`[AI] Tenant ${tenantId} selected custom provider but did not specify baseUrl.`);
+      return null;
+    }
+  }
+
+  if (!apiKey) throw new Error("AI API Key is not configured for this tenant or globally.");
+
+  const isAnthropicStyle = finalSettings.provider === "anthropic" || finalSettings.provider === "anthropic_compatible";
+  let apiEndpoint = "";
+
+  if (isAnthropicStyle) {
+    if (finalSettings.provider === "anthropic") {
+      apiEndpoint = "https://api.anthropic.com/v1/messages";
+    } else {
+      const base = baseUrl.replace(/\/$/, "");
+      apiEndpoint = base.endsWith("/messages") ? base : `${base}/messages`;
+    }
+  } else {
+    if (finalSettings.provider === "openai") {
+      apiEndpoint = "https://api.openai.com/v1/chat/completions";
+    } else {
+      const base = baseUrl.replace(/\/$/, "");
+      apiEndpoint = base.endsWith("/chat/completions") ? base : `${base}/chat/completions`;
+    }
+  }
 
   const tools = [
     {
@@ -123,7 +296,7 @@ ATURAN KOMUNIKASI:
     }
   ];
 
-  let userMessageContent: any = userMessage;
+  let userMessageContent: string | any = userMessage;
   if (imageUrl) {
     userMessageContent = [
       { type: "text", text: userMessage || "[Gambar Lampiran]" },
@@ -131,15 +304,112 @@ ATURAN KOMUNIKASI:
     ];
   }
 
-  let currentMessages: any[] = [
+  const currentMessages: any[] = [
     { role: "system", content: systemPrompt },
     ...history,
     { role: "user", content: userMessageContent },
   ];
 
-  // Loop untuk menghandle tool calling (maksimal 2 iterasi)
+  // -------------------------------------------------------------
+  // PROVIDER 1: ANTHROPIC CLAUDE STYLE
+  // -------------------------------------------------------------
+  if (isAnthropicStyle) {
+    const anthropicTools = tools.map((t) => ({
+      name: t.function.name,
+      description: t.function.description,
+      input_schema: t.function.parameters,
+    }));
+
+    // Filter messages for Anthropic (no system role in messages, must alternate roles)
+    let anthropicMessages = currentMessages.filter((m: any) => m.role !== "system").map((m: any) => {
+      let content = m.content;
+      if (Array.isArray(content)) {
+        content = content.map((c: any) => {
+          if (c.type === "image_url") {
+            const base64Data = c.image_url?.url?.split("base64,")[1] || "";
+            return {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: "image/jpeg",
+                data: base64Data,
+              },
+            };
+          }
+          return c;
+        });
+      }
+      return { role: m.role, content };
+    });
+
+    for (let i = 0; i < 2; i++) {
+      const response = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: {
+          "x-api-key": apiKey!,
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: finalSettings.model,
+          system: systemPrompt,
+          messages: anthropicMessages,
+          max_tokens: 1024,
+          tools: anthropicTools,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        console.error("Anthropic API Error:", err);
+        throw new Error(`Anthropic Provider failed: ${err}`);
+      }
+
+      const data = await response.json();
+      const assistantContent = data.content;
+      
+      anthropicMessages.push({ role: "assistant", content: assistantContent });
+
+      // Find tool_use block
+      const toolUseBlock = assistantContent.find((c: any) => c.type === "tool_use");
+
+      if (toolUseBlock) {
+        const toolName = toolUseBlock.name;
+        const toolArgs = toolUseBlock.input;
+        const toolId = toolUseBlock.id;
+        
+        const toolResult = await executeTool(toolName, toolArgs, tenantId, fromNumber, fromName, context);
+        
+        anthropicMessages.push({
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: toolId,
+              content: toolResult,
+            },
+          ],
+        });
+      } else {
+        const textBlock = assistantContent.find((c: any) => c.type === "text");
+        return textBlock?.text || "";
+      }
+    }
+    
+    // Fallback if loop ends
+    const lastMsg = anthropicMessages[anthropicMessages.length - 1];
+    if (lastMsg && Array.isArray(lastMsg.content)) {
+      const textBlock = lastMsg.content.find((c: any) => c.type === "text");
+      return textBlock?.text || "";
+    }
+    return "Maaf, sistem sedang memproses pesanan Anda. Mohon tunggu sebentar.";
+  }
+
+  // -------------------------------------------------------------
+  // PROVIDER 2: OPENAI OR CUSTOM COMPATIBLE
+  // -------------------------------------------------------------
   for (let i = 0; i < 2; i++) {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    const response = await fetch(apiEndpoint, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
@@ -164,120 +434,19 @@ ATURAN KOMUNIKASI:
     const responseMessage = data.choices[0].message;
 
     if (responseMessage.tool_calls) {
-      currentMessages.push(responseMessage); // Masukkan response tool_calls ke riwayat
+      currentMessages.push(responseMessage); // Save to history
 
       for (const toolCall of responseMessage.tool_calls) {
-        if (toolCall.function.name === "escalate_to_human") {
-          try {
-            const args = JSON.parse(toolCall.function.arguments);
-            // Insert force human cooldown
-            await db.insert(chatLogs).values({
-              tenantId,
-              fromNumber: fromNumber || "unknown",
-              message: "",
-              reply: `[SISTEM] AI diberhentikan sejenak (Eskalasi Sentimen/Konteks: ${args.reason}). Segera balas secara manual untuk mengambil alih sesi ini.`,
-              isAi: false,
-              isHuman: true, // men-trigger batas waktu cooldown 2 jam
-            });
-            currentMessages.push({ role: "tool", tool_call_id: toolCall.id, content: "Sukses: Obrolan telah dialihkan ke Admin." });
-          } catch (e: any) {
-            console.error("Tool escalate error:", e);
-            currentMessages.push({ role: "tool", tool_call_id: toolCall.id, content: `Error: ${e.message}` });
-          }
-        } else if (toolCall.function.name === "create_order") {
-          try {
-            const args = JSON.parse(toolCall.function.arguments);
-            const product = await db.query.products.findFirst({ where: eq(products.id, args.product_id) });
-            
-            if (!product) {
-              currentMessages.push({ role: "tool", tool_call_id: toolCall.id, content: "Gagal: Produk tidak ditemukan." });
-              continue;
-            }
-
-            const hargaAsli = product.harga * args.jumlah;
-            const today = new Date().toISOString().split("T")[0]; // format YYYY-MM-DD
-
-            // Cari promo aktif yang berlaku untuk produk ini
-            const activePromos = await db.query.promos.findMany({
-              where: and(
-                eq(promos.tenantId, tenantId),
-                eq(promos.aktif, true),
-              ),
-              with: { promoProducts: true },
-            });
-
-            let appliedPromo: typeof activePromos[0] | null = null;
-            let diskonAmount = 0;
-
-            for (const promo of activePromos) {
-              // Cek tanggal berlaku
-              if (today < promo.tanggalMulai || today > promo.tanggalBerakhir) continue;
-              // Cek minimum pembelian
-              if (promo.minPembelian && hargaAsli < promo.minPembelian) continue;
-              // Cek apakah promo berlaku untuk produk ini
-              const isTargetAll = promo.targetTipe === "all";
-              const isTargetProduct = (promo as any).promoProducts?.some((pp: any) => pp.productId === product.id);
-              if (!isTargetAll && !isTargetProduct) continue;
-
-              // Hitung diskon
-              let rawDiskon = 0;
-              if (promo.diskonTipe === "persen") {
-                rawDiskon = Math.floor((hargaAsli * promo.diskonValue) / 100);
-              } else {
-                rawDiskon = promo.diskonValue * args.jumlah;
-              }
-              // Terapkan maxPotongan jika ada
-              if (promo.maxPotongan && rawDiskon > promo.maxPotongan) rawDiskon = promo.maxPotongan;
-
-              // Pakai promo pertama yang cocok (bisa diextend ke "terbaik" nanti)
-              appliedPromo = promo;
-              diskonAmount = rawDiskon;
-              break;
-            }
-
-            const totalHarga = Math.max(0, hargaAsli - diskonAmount);
-
-            const orderResult = await db.insert(orders).values({
-              tenantId,
-              fromNumber: fromNumber || "unknown",
-              fromName: fromName || null,
-              productId: product.id,
-              jumlah: args.jumlah,
-              hargaAsli,
-              diskonAmount,
-              totalHarga,
-              promoId: appliedPromo?.id || null,
-              alamat: args.alamat || null,
-              status: "pending",
-            }).returning({ id: orders.id });
-
-            const orderId = orderResult[0].id;
-            const diskonInfo = diskonAmount > 0 
-              ? ` (Diskon ${appliedPromo?.judul}: -Rp ${diskonAmount.toLocaleString("id-ID")})` 
-              : "";
-            let replyContent = `Sukses. Order ID: ORD-${orderId.substring(0, 8)}. Harga asli: Rp ${hargaAsli.toLocaleString("id-ID")}${diskonInfo}. Total bayar: Rp ${totalHarga.toLocaleString("id-ID")}. `;
-
-            if (context.tenant?.pakasirProjectSlug) {
-              const checkoutUrl = `https://app.pakasir.com/pay/${context.tenant.pakasirProjectSlug}/${totalHarga}?order_id=ORD-${orderId}&title=Order-${encodeURIComponent(product.nama.substring(0, 50))}`;
-              replyContent += `Berikan BERITA BAIK ke pelanggan bahwa pesanan berhasil dicatat dan arahkan mereka untuk membayar melalui link berikut: ${checkoutUrl}`;
-            } else {
-              replyContent += `Minta pelanggan mentransfer sesuai instruksi pembayaran yang tersedia.`;
-            }
-
-            currentMessages.push({ role: "tool", tool_call_id: toolCall.id, content: replyContent });
-          } catch (e: any) {
-            console.error("Tool execution error:", e);
-            currentMessages.push({ role: "tool", tool_call_id: toolCall.id, content: `Error: ${e.message}` });
-          }
-        }
+        const toolName = toolCall.function.name;
+        const toolArgs = JSON.parse(toolCall.function.arguments);
+        const replyContent = await executeTool(toolName, toolArgs, tenantId, fromNumber, fromName, context);
+        currentMessages.push({ role: "tool", tool_call_id: toolCall.id, content: replyContent });
       }
     } else {
-      // Selesai jika tidak ada tool calls lagi
       return responseMessage.content;
     }
   }
 
-  // Jika setelah 2 loop masih ada tool calls (fallback darurat)
   return "Maaf, sistem sedang memproses pesanan Anda. Mohon tunggu sebentar.";
 }
 
@@ -314,9 +483,10 @@ async function getOrderHistory(tenantId: string, fromNumber: string) {
 async function _getBotContextRaw(tenantId: string) {
   const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
-  const [tenant, allProducts, allFaqs, allPromos, allPayments, availableSlots] = await Promise.all([
+  const [tenant, allProducts, allCatalogItems, allFaqs, allPromos, allPayments, availableSlots] = await Promise.all([
     db.query.tenants.findFirst({ where: eq(tenants.id, tenantId) }),
     db.query.products.findMany({ where: and(eq(products.tenantId, tenantId), eq(products.aktif, true)) }),
+    db.query.catalogItems.findMany({ where: and(eq(catalogItems.tenantId, tenantId), eq(catalogItems.aktif, true)) }),
     db.query.faqs.findMany({ where: and(eq(faqs.tenantId, tenantId), eq(faqs.aktif, true)) }),
     db.query.promos.findMany({ 
       where: and(
@@ -339,9 +509,28 @@ async function _getBotContextRaw(tenantId: string) {
 
   const profileContext = tenant ? `Toko: ${tenant.namaToko}\nDeskripsi: ${tenant.deskripsi || "-"}\nLink Shopee: ${tenant.linkShopee || "-"}\nLink TikTok: ${tenant.linkTiktok || "-"}` : "Info toko tidak tersedia.";
 
-  const productsContext = allProducts.map(p => 
+  const legacyProductsCtx = allProducts.map(p => 
     `- [ID: ${p.id}] ${p.nama} (${p.tipe}): Rp ${p.harga.toLocaleString("id-ID")}. ${p.deskripsi || ""}${p.stok !== null ? ` (Stok: ${p.stok})` : ""}${p.durasi ? ` (Durasi: ${p.durasi})` : ""}`
   ).join("\n");
+
+  const catalogItemsCtx = allCatalogItems.map(c => {
+    const data = c.data as Record<string, unknown>;
+    const tipe = (data?.tipe as string) || "fisik";
+    const desc = (data?.deskripsi as string) || "";
+    const stok = data?.stok;
+    const durasi = data?.durasi;
+    
+    const customFieldsContext = Object.entries(data || {})
+      .filter(([k]) => !["tipe", "deskripsi", "stok", "durasi", "legacy_product_id", "hargaCoret", "diskonPersen"].includes(k))
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(", ");
+      
+    const customInfo = customFieldsContext ? ` (${customFieldsContext})` : "";
+    
+    return `- [ID: ${c.id}] ${c.nama} (${tipe}): ${c.harga !== null ? `Rp ${c.harga.toLocaleString("id-ID")}` : "Hubungi Admin"}. ${desc}${stok !== undefined && stok !== null ? ` (Stok: ${stok})` : ""}${durasi ? ` (Durasi: ${durasi})` : ""}${customInfo}`;
+  }).join("\n");
+
+  const productsContext = [legacyProductsCtx, catalogItemsCtx].filter(Boolean).join("\n");
 
   const faqsContext = allFaqs.map(f => 
     `Q: ${f.pertanyaan}\nA: ${f.jawaban}`

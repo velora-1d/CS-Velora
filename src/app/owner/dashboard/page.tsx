@@ -11,7 +11,7 @@ import {
 } from "recharts";
 import { formatRupiah } from "@/lib/utils";
 
-const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
+const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#FFBF69"];
 
 export default function OwnerDashboard() {
   const [data, setData] = useState<any>(null);

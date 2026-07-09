@@ -14,6 +14,10 @@ export async function GET() {
     const tenantId = session.user.tenantId;
     const slots = await db.query.consultationSlots.findMany({
       where: eq(consultationSlots.tenantId, tenantId),
+      with: {
+        product: true,
+        catalogItem: true,
+      },
       orderBy: [desc(consultationSlots.tanggal), desc(consultationSlots.jamMulai)],
     });
 
@@ -36,7 +40,8 @@ export async function POST(req: Request) {
 
     const newSlot = await db.insert(consultationSlots).values({
       tenantId,
-      productId: body.productId,
+      productId: body.productId || null,
+      catalogItemId: body.catalogItemId || null,
       tanggal: body.tanggal, // Format: YYYY-MM-DD
       jamMulai: body.jamMulai, // Format: HH:MM:SS
       jamSelesai: body.jamSelesai,

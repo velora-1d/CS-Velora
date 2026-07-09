@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { orders, products } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { orders, products, catalogItems } from "@/db/schema";
+import { eq, desc, sql } from "drizzle-orm";
 
 export async function GET() {
   try {
@@ -20,14 +20,16 @@ export async function GET() {
         fromNumber: orders.fromNumber,
         fromName: orders.fromName,
         productId: orders.productId,
-        produk: products.nama, // Ambil nama produk
+        catalogItemId: orders.catalogItemId,
+        produk: sql<string>`COALESCE(${products.nama}, ${catalogItems.nama})`, // Ambil nama produk/katalog
         jumlah: orders.jumlah,
         total: orders.totalHarga,
         status: orders.status,
         createdAt: orders.createdAt,
       })
       .from(orders)
-      .innerJoin(products, eq(orders.productId, products.id))
+      .leftJoin(products, eq(orders.productId, products.id))
+      .leftJoin(catalogItems, eq(orders.catalogItemId, catalogItems.id))
       .where(eq(orders.tenantId, tenantId))
       .orderBy(desc(orders.createdAt));
 

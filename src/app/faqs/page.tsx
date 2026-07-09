@@ -12,6 +12,8 @@ import {
   Loader2,
 } from "lucide-react";
 
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+
 type FaqItem = {
   id: string;
   pertanyaan: string;
@@ -35,6 +37,39 @@ export default function FaqsPage() {
   const [editingFaq, setEditingFaq] = useState<FaqItem | null>(null);
   const [formData, setFormData] = useState<FaqForm>(initialFormData);
   const [isSaving, setIsSaving] = useState(false);
+
+  // --- Confirm Modal State ---
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void;
+    isDanger?: boolean;
+  }>({
+    isOpen: false,
+    message: "",
+    onConfirm: () => {},
+  });
+
+  const showConfirm = (options: {
+    title?: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void;
+    isDanger?: boolean;
+  }) => {
+    setConfirmConfig({
+      isOpen: true,
+      ...options,
+    });
+  };
+
+  const closeConfirm = () => {
+    setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+  };
 
   useEffect(() => {
     fetchFaqs();
@@ -127,19 +162,27 @@ export default function FaqsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Yakin ingin menghapus FAQ ini?")) return;
-    try {
-      const res = await fetch(`/api/faqs/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        toast.success("FAQ dihapus");
-        fetchFaqs();
-      } else {
-        const data = await res.json();
-        toast.error("Gagal menghapus: " + (data.error || "Unknown error"));
+    showConfirm({
+      title: "Hapus FAQ",
+      message: "Yakin ingin menghapus FAQ ini?",
+      confirmLabel: "Hapus",
+      cancelLabel: "Batal",
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/faqs/${id}`, { method: "DELETE" });
+          if (res.ok) {
+            toast.success("FAQ dihapus");
+            fetchFaqs();
+          } else {
+            const data = await res.json();
+            toast.error("Gagal menghapus: " + (data.error || "Unknown error"));
+          }
+        } catch {
+          toast.error("Terjadi kesalahan saat menghapus FAQ.");
+        }
       }
-    } catch {
-      toast.error("Terjadi kesalahan saat menghapus FAQ.");
-    }
+    });
   };
 
   const activeCount = faqs.filter((f) => f.aktif).length;
@@ -201,10 +244,22 @@ export default function FaqsPage() {
 
       <div className="space-y-3">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-[#93A8C7]">
-            <Loader2 className="h-10 w-10 animate-spin mb-4 text-[#56D6FF]" />
-            <p>Memuat FAQ...</p>
-          </div>
+          Array.from({ length: 3 }).map((_, idx) => (
+            <div key={idx} className="glass-card p-5 animate-pulse border border-white/5 space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 space-y-3">
+                  <div className="h-5 bg-white/5 rounded w-1/3"></div>
+                  <div className="h-3.5 bg-white/5 rounded w-3/4"></div>
+                  <div className="h-3.5 bg-white/5 rounded w-1/2"></div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="h-5 w-14 bg-white/5 rounded-full"></div>
+                  <div className="h-8 w-8 bg-white/5 rounded-lg"></div>
+                  <div className="h-8 w-8 bg-white/5 rounded-lg"></div>
+                </div>
+              </div>
+            </div>
+          ))
         ) : filtered.length === 0 ? (
           <div className="glass-card py-20 text-center">
             <HelpCircle className="mx-auto h-12 w-12 text-[#334155] mb-4" />
@@ -298,6 +353,20 @@ export default function FaqsPage() {
           </div>
         </div>
       </div>
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmLabel={confirmConfig.confirmLabel}
+        cancelLabel={confirmConfig.cancelLabel}
+        onConfirm={() => {
+          confirmConfig.onConfirm();
+          closeConfirm();
+        }}
+        onCancel={closeConfirm}
+        isDanger={confirmConfig.isDanger}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { orders, products } from "@/db/schema";
+import { orders, products, catalogItems } from "@/db/schema";
 import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
 
 export async function GET(req: Request) {
@@ -42,8 +42,8 @@ export async function GET(req: Request) {
         id: orders.id,
         fromNumber: orders.fromNumber,
         fromName: orders.fromName,
-        produk: products.nama,
-        tipe: products.tipe,
+        produk: sql<string>`COALESCE(${products.nama}, ${catalogItems.nama})`,
+        tipe: sql<string>`COALESCE(${products.tipe}::varchar, (${catalogItems.data}->>'tipe')::varchar, 'fisik')`,
         jumlah: orders.jumlah,
         hargaAsli: orders.hargaAsli,
         diskonAmount: orders.diskonAmount,
@@ -52,7 +52,8 @@ export async function GET(req: Request) {
         createdAt: orders.createdAt,
       })
       .from(orders)
-      .innerJoin(products, eq(orders.productId, products.id))
+      .leftJoin(products, eq(orders.productId, products.id))
+      .leftJoin(catalogItems, eq(orders.catalogItemId, catalogItems.id))
       .where(and(...filters))
       .orderBy(desc(orders.createdAt));
 

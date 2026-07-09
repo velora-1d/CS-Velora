@@ -14,7 +14,7 @@ import { formatRupiah } from "@/lib/utils";
 import { exportToPDF, exportToExcel, exportToCSV } from "@/lib/export-utils";
 import { toast } from "sonner";
 
-const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
+const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#FFBF69"];
 
 export default function ReportsPage() {
   const [data, setData] = useState<any>(null);
@@ -100,6 +100,7 @@ export default function ReportsPage() {
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 className="bg-transparent border-none text-xs text-[#F1F5F9] focus:outline-none focus:ring-0 [color-scheme:dark]"
+                style={{ direction: "rtl", textAlign: "left" }}
               />
             </div>
             <div className="flex items-center gap-2 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-xl px-4 py-2">
@@ -109,6 +110,7 @@ export default function ReportsPage() {
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 className="bg-transparent border-none text-xs text-[#F1F5F9] focus:outline-none focus:ring-0 [color-scheme:dark]"
+                style={{ direction: "rtl", textAlign: "left" }}
               />
             </div>
             <div className="h-6 w-px bg-white/10 mx-1 hidden md:block" />

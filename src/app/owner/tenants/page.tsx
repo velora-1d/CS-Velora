@@ -114,12 +114,34 @@ export default function OwnerTenantsPage() {
             </thead>
             <tbody className="divide-y divide-[rgba(255,255,255,0.05)]">
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
-                    <Loader2 className="w-8 h-8 animate-spin text-[#3B82F6] mx-auto mb-2" />
-                    <p>Memuat data tenant...</p>
-                  </td>
-                </tr>
+                Array.from({ length: 4 }).map((_, idx) => (
+                  <tr key={idx} className="animate-pulse border-b border-[rgba(255,255,255,0.02)]">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-white/5"></div>
+                        <div className="h-4 bg-white/5 rounded w-24"></div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="h-4 bg-white/5 rounded w-32 mb-1.5"></div>
+                      <div className="h-3 bg-white/5 rounded w-20"></div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="h-5 bg-white/5 rounded-full w-14"></div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="h-5 bg-white/5 rounded-full w-14"></div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="h-3 bg-white/5 rounded w-24"></div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex justify-end">
+                        <div className="h-8 w-14 bg-white/5 rounded-lg"></div>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               ) : filteredTenants.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-[#94A3B8]">

@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, XCircle, Eye, Clock, Loader2 } from "lucide-react";
+import { CheckCircle, XCircle, Eye, Clock, Loader2, Zap } from "lucide-react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
+
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
 interface Subscription {
   id: string;
@@ -20,9 +22,43 @@ export default function BillingActions({ subs }: { subs: Subscription[] }) {
   const [loading, setLoading] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
-  const filteredItems = items.filter((item) => 
-    item.tenant?.namaToko.toLowerCase().includes(search.toLowerCase()) ||
-    item.paket.toLowerCase().includes(search.toLowerCase())
+  // --- Confirm Modal State ---
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void;
+    isDanger?: boolean;
+  }>({
+    isOpen: false,
+    message: "",
+    onConfirm: () => {},
+  });
+
+  const showConfirm = (options: {
+    title?: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void;
+    isDanger?: boolean;
+  }) => {
+    setConfirmConfig({
+      isOpen: true,
+      ...options,
+    });
+  };
+
+  const closeConfirm = () => {
+    setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+  };
+
+  const filteredItems = items.filter(
+    (item) =>
+      item.tenant?.namaToko.toLowerCase().includes(search.toLowerCase()) ||
+      item.paket.toLowerCase().includes(search.toLowerCase())
   );
 
   function showToast(msg: string, ok: boolean) {
@@ -44,17 +80,25 @@ export default function BillingActions({ subs }: { subs: Subscription[] }) {
   }
 
   async function handleReject(id: string) {
-    if (!confirm("Yakin menolak tagihan ini?")) return;
-    setLoading(id + "_reject");
-    const res = await fetch(`/api/owner/billing/${id}/reject`, { method: "POST" });
-    const data = await res.json();
-    setLoading(null);
-    if (res.ok) {
-      setItems((prev) => prev.filter((s) => s.id !== id));
-      showToast("Tagihan berhasil ditolak.", true);
-    } else {
-      showToast(data.error || "Gagal menolak tagihan.", false);
-    }
+    showConfirm({
+      title: "Tolak Tagihan",
+      message: "Yakin menolak tagihan ini?",
+      confirmLabel: "Tolak",
+      cancelLabel: "Batal",
+      isDanger: true,
+      onConfirm: async () => {
+        setLoading(id + "_reject");
+        const res = await fetch(`/api/owner/billing/${id}/reject`, { method: "POST" });
+        const data = await res.json();
+        setLoading(null);
+        if (res.ok) {
+          setItems((prev) => prev.filter((s) => s.id !== id));
+          showToast("Tagihan berhasil ditolak.", true);
+        } else {
+          showToast(data.error || "Gagal menolak tagihan.", false);
+        }
+      },
+    });
   }
 
   return (
@@ -76,7 +120,7 @@ export default function BillingActions({ subs }: { subs: Subscription[] }) {
           <Clock className="h-4 w-4 text-[#FFBF69]" />
           Antrean Persetujuan
         </h2>
-        <div className="relative w-full sm:w-64">
+        <div className="relative w-full sm:w-56">
           <input
             type="text"
             placeholder="Cari tenant atau paket..."
@@ -121,7 +165,14 @@ export default function BillingActions({ subs }: { subs: Subscription[] }) {
                     {sub.tenant?.namaToko || "Unknown"}
                   </td>
                   <td className="px-6 py-4">
-                    <span className="capitalize inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#3B82F6]/10 border border-[#3B82F6]/20 text-[#3B82F6]">
+                    <span
+                      className={`capitalize inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
+                        sub.paket === "pro"
+                          ? "bg-yellow-500/10 border border-yellow-500/20 text-yellow-400"
+                          : "bg-[#3B82F6]/10 border border-[#3B82F6]/20 text-[#3B82F6]"
+                      }`}
+                    >
+                      {sub.paket === "pro" && <Zap className="w-3 h-3" />}
                       {sub.paket}
                     </span>
                   </td>
@@ -175,6 +226,21 @@ export default function BillingActions({ subs }: { subs: Subscription[] }) {
           </tbody>
         </table>
       </div>
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmLabel={confirmConfig.confirmLabel}
+        cancelLabel={confirmConfig.cancelLabel}
+        onConfirm={() => {
+          confirmConfig.onConfirm();
+          closeConfirm();
+        }}
+        onCancel={closeConfirm}
+        isDanger={confirmConfig.isDanger}
+      />
     </div>
   );
 }

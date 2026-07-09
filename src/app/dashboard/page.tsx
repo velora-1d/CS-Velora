@@ -146,8 +146,8 @@ export default async function DashboardPage() {
       title: "Slot Hari Ini",
       value: stats.todaySlots.toString(),
       icon: Calendar,
-      color: "text-[#8B5CF6]",
-      bgColor: "bg-[#8B5CF6]/10",
+      color: "text-[#3B82F6]",
+      bgColor: "bg-[#3B82F6]/10",
     },
     {
       title: "Pending Actions",

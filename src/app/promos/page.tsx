@@ -15,6 +15,8 @@ import {
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+
 type PromoItem = {
   id: string;
   judul: string;
@@ -73,6 +75,39 @@ export default function PromosPage() {
   const [editingPromo, setEditingPromo] = useState<PromoItem | null>(null);
   const [formData, setFormData] = useState<PromoForm>(initialFormData);
   const [isSaving, setIsSaving] = useState(false);
+
+  // --- Confirm Modal State ---
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void;
+    isDanger?: boolean;
+  }>({
+    isOpen: false,
+    message: "",
+    onConfirm: () => {},
+  });
+
+  const showConfirm = (options: {
+    title?: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void;
+    isDanger?: boolean;
+  }) => {
+    setConfirmConfig({
+      isOpen: true,
+      ...options,
+    });
+  };
+
+  const closeConfirm = () => {
+    setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+  };
 
   useEffect(() => {
     fetchPromos();
@@ -199,19 +234,27 @@ export default function PromosPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Yakin ingin menghapus promo ini?")) return;
-    try {
-      const res = await fetch(`/api/promos/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        toast.success("Promo dihapus");
-        fetchPromos();
-      } else {
-        const data = await res.json();
-        toast.error("Gagal menghapus: " + (data.error || "Unknown error"));
+    showConfirm({
+      title: "Hapus Promo",
+      message: "Yakin ingin menghapus promo ini?",
+      confirmLabel: "Hapus",
+      cancelLabel: "Batal",
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/promos/${id}`, { method: "DELETE" });
+          if (res.ok) {
+            toast.success("Promo dihapus");
+            fetchPromos();
+          } else {
+            const data = await res.json();
+            toast.error("Gagal menghapus: " + (data.error || "Unknown error"));
+          }
+        } catch {
+          toast.error("Terjadi kesalahan.");
+        }
       }
-    } catch {
-      toast.error("Terjadi kesalahan.");
-    }
+    });
   };
 
   const formatDate = (d: string) => {
@@ -292,14 +335,32 @@ export default function PromosPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-16 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <Loader2 className="h-8 w-8 animate-spin text-[#56D6FF]" />
-                      <p className="text-[#93A8C7]">Memuat promo...</p>
-                    </div>
-                  </td>
-                </tr>
+                Array.from({ length: 4 }).map((_, idx) => (
+                  <tr key={idx} className="animate-pulse border-b border-[rgba(255,255,255,0.02)]">
+                    <td className="px-4 py-4">
+                      <div className="h-4 bg-white/5 rounded w-24 mb-2"></div>
+                      <div className="h-3 bg-white/5 rounded w-32"></div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-4 bg-white/5 rounded w-16"></div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-4 bg-white/5 rounded w-28"></div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-3 bg-white/5 rounded w-36"></div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-5 bg-white/5 rounded-full w-14"></div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex justify-end gap-2">
+                        <div className="h-8 w-8 bg-white/5 rounded-lg"></div>
+                        <div className="h-8 w-8 bg-white/5 rounded-lg"></div>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-16 text-center text-[#93A8C7]">
@@ -543,6 +604,20 @@ export default function PromosPage() {
           </div>
         </div>
       </div>
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmLabel={confirmConfig.confirmLabel}
+        cancelLabel={confirmConfig.cancelLabel}
+        onConfirm={() => {
+          confirmConfig.onConfirm();
+          closeConfirm();
+        }}
+        onCancel={closeConfirm}
+        isDanger={confirmConfig.isDanger}
+      />
     </div>
   );
 }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
+
 import { 
   LayoutDashboard, 
   Users, 
@@ -24,9 +24,13 @@ import {
   MessageSquare,
   Store,
   User,
-  X
+  X,
+  Database,
+  DollarSign,
+  TrendingUp,
+  PackageCheck
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 interface OwnerSidebarProps {
   user: {
@@ -39,37 +43,85 @@ interface OwnerSidebarProps {
 
 export function OwnerSidebar({ user, isOpen, onClose }: OwnerSidebarProps) {
   const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
+  const [catalogLabel, setCatalogLabel] = useState("Katalog");
+  const [orderLabel, setOrderLabel] = useState("Pesanan");
+
+  const [logoUrl, setLogoUrl] = useState<string>("/logo-velora.png");
+
+  useEffect(() => {
+    const fetchLabels = async () => {
+      try {
+        const res = await fetch("/api/profile");
+        const data = await res.json();
+        if (res.ok) {
+          if (data.catalogLabel) setCatalogLabel(data.catalogLabel);
+          if (data.orderLabel) setOrderLabel(data.orderLabel);
+        }
+
+        const resBrand = await fetch("/api/branding");
+        if (resBrand.ok) {
+          const brandData = await resBrand.json();
+          setLogoUrl(brandData.system_sidebar_logo || "/logo-velora.png");
+        }
+      } catch (error) {
+        console.error("Gagal memuat label kustom di sidebar:", error);
+      }
+    };
+    fetchLabels();
+
+    window.addEventListener("profile-updated", fetchLabels);
+    window.addEventListener("branding-updated", fetchLabels);
+    return () => {
+      window.removeEventListener("profile-updated", fetchLabels);
+      window.removeEventListener("branding-updated", fetchLabels);
+    };
+  }, []);
 
   const navItems = [
     { name: "Dashboard", href: "/owner/dashboard", icon: LayoutDashboard },
     { name: "Laporan", href: "/owner/reports", icon: Activity },
     { name: "Manajemen Tenant", href: "/owner/tenants", icon: Users },
+    { name: "Kelola Paket", href: "/owner/packages", icon: PackageCheck },
     { name: "Billing & Pembayaran", href: "/owner/billing", icon: CreditCard },
     { name: "Pengumuman", href: "/owner/announcements", icon: Megaphone },
     { name: "Pengaturan", href: "/owner/settings", icon: Settings },
   ];
 
-  const tenantNavItems = [
-    { name: "WhatsApp", href: "/dashboard/whatsapp", icon: MessageCircle },
-    { name: "Produk", href: "/products", icon: Package },
-    { name: "Promo", href: "/promos", icon: Tag },
-    { name: "Orders", href: "/orders", icon: ShoppingCart },
-    { name: "Jadwal & Konsultasi", href: "/consultations", icon: Calendar },
-    { name: "Pembayaran", href: "/payments", icon: CreditCard },
-    { name: "Langganan & Billing", href: "/billing", icon: CreditCard },
-    { name: "FAQ", href: "/faqs", icon: HelpCircle },
-    { name: "AI Settings", href: "/ai-settings", icon: Bot },
-    { name: "Bot Settings", href: "/bot-settings", icon: Settings },
-    { name: "Security", href: "/security", icon: Shield },
-    { name: "Riwayat Chat", href: "/chats", icon: MessageSquare },
-    { name: "Profil Toko", href: "/profile", icon: Store },
-    { name: "Akun", href: "/account", icon: User },
+  const tenantGroups = [
+    {
+      title: "Daily Operations",
+      items: [
+        { name: "Database Client", href: "/dashboard/clients", icon: Database },
+      ]
+    },
+    {
+      title: "Katalog & Fitur",
+      items: [
+        { name: catalogLabel, href: "/products", icon: Package },
+        { name: orderLabel, href: "/orders", icon: ShoppingCart },
+        { name: "Jadwal Konsultasi", href: "/consultations", icon: Calendar },
+        { name: "Riwayat Chat", href: "/chats", icon: MessageSquare },
+        { name: "FAQ", href: "/faqs", icon: HelpCircle },
+        { name: "Promo", href: "/promos", icon: Tag },
+      ]
+    },
+    {
+      title: "Sistem & Laporan",
+      items: [
+        { name: "Keuangan", href: "/keuangan", icon: DollarSign },
+        { name: "Laporan", href: "/reports", icon: TrendingUp },
+        { name: "Langganan & Billing", href: "/billing", icon: CreditCard },
+        { name: "Pengaturan", href: "/settings", icon: Settings },
+      ]
+    }
   ];
 
   const checkActive = (href: string) => {
     if (href === "/owner/dashboard") return pathname === href;
     return pathname === href || pathname.startsWith(href + "/");
   };
+
 
   // Close sidebar on path change (mobile)
   useEffect(() => {
@@ -106,8 +158,14 @@ export function OwnerSidebar({ user, isOpen, onClose }: OwnerSidebarProps) {
       >
         <div className="p-6 border-b border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.02)] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center shrink-0">
-              <Image src="/logo-velora.png" alt="Velora Logo" width={40} height={40} className="object-contain" priority />
+            <div className="flex items-center justify-center shrink-0 w-10 h-10 overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img 
+                src={logoUrl} 
+                alt="Velora Logo" 
+                className="max-w-full max-h-full object-contain p-0.5" 
+                onError={(e) => { (e.target as HTMLImageElement).src = "/logo-velora.png"; }} 
+              />
             </div>
             <div>
               <h1 className="font-bold text-lg leading-none text-white tracking-tight">Velora ID</h1>
@@ -165,45 +223,18 @@ export function OwnerSidebar({ user, isOpen, onClose }: OwnerSidebarProps) {
               })}
             </div>
           </div>
-
-          <div>
-            <div className="px-4 mb-4">
-              <p className="text-[10px] font-black text-[#475569] uppercase tracking-[0.2em]">Tenant OPS Simulation</p>
-            </div>
-            <div className="grid grid-cols-1 gap-1.5">
-              {tenantNavItems.map((item) => {
-                const isActive = checkActive(item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    id={isActive ? "active-owner-menu-item" : undefined}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group relative overflow-hidden",
-                      isActive 
-                        ? "bg-[linear-gradient(135deg,rgba(59,130,246,0.25),rgba(37,99,235,0.12))] text-[#56D6FF] shadow-[0_2px_10px_rgba(59,130,246,0.15)] border border-[rgba(59,130,246,0.1)]" 
-                        : "text-[#64748B] hover:text-[#F1F5F9] hover:bg-[rgba(255,255,255,0.04)] border border-transparent"
-                    )}
-                  >
-                    {isActive && (
-                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#3B82F6] shadow-[1px_0_10px_rgba(59,130,246,0.8)] z-10" />
-                    )}
-                    <item.icon className={cn(
-                      "w-4 h-4 transition-all relative z-10",
-                      isActive ? "text-[#56D6FF] scale-110 drop-shadow-[0_0_5px_rgba(86,214,255,0.4)]" : "group-hover:scale-110 group-hover:text-[#F1F5F9]"
-                    )} />
-                    <span className={cn(
-                      "font-bold text-xs tracking-tight relative z-10",
-                      isActive ? "text-[#F8FAFC]" : ""
-                    )}>{item.name}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
         </nav>
 
         <div className="p-4 border-t border-[rgba(255,255,255,0.08)] bg-[rgba(15,23,42,0.8)]">
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-3 px-4 py-3 text-[#3B82F6] hover:bg-[#3B82F6]/10 border border-[#3B82F6]/20 bg-[#3B82F6]/5 rounded-xl transition-all duration-300 w-full group relative overflow-hidden mb-3"
+          >
+            <div className="absolute inset-0 bg-[#3B82F6]/0 group-hover:bg-[#3B82F6]/5 transition-colors" />
+            <Store className="w-5 h-5 group-hover:scale-110 transition-all duration-300 relative z-10 text-[#56D6FF]" />
+            <span className="font-black text-xs uppercase tracking-widest relative z-10 text-white">Tenant Dashboard</span>
+          </Link>
+
           <div className="px-4 py-3 mb-3 flex items-center gap-3 bg-[rgba(255,255,255,0.03)] rounded-2xl border border-[rgba(255,255,255,0.05)] shadow-xl">
             <div className="w-10 h-10 rounded-xl bg-[#1E293B] border border-[rgba(255,255,255,0.1)] flex items-center justify-center text-sm font-black text-[#3B82F6] shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]">
               {user.nama?.charAt(0).toUpperCase() || "O"}

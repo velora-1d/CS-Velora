@@ -24,11 +24,18 @@ export async function GET() {
             systemPrompt: "You are a helpful assistant.",
             namaAgent: "Velora",
             model: "gpt-4o",
+            provider: "openai",
         }).returning();
         settings = newSettings[0];
     }
 
-    return NextResponse.json(settings);
+    // Mask API Key for security
+    const responseSettings = { ...settings };
+    if (responseSettings.apiKey) {
+      responseSettings.apiKey = "••••••••••••";
+    }
+
+    return NextResponse.json(responseSettings);
   } catch (error) {
     console.error("GET /api/ai-settings error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
@@ -45,27 +52,50 @@ export async function PUT(req: Request) {
     const tenantId = session.user.tenantId;
     const body = await req.json();
 
-    const updatedSettings = await db.update(aiSettings).set({
+    const updateData: any = {
       systemPrompt: body.systemPrompt,
       namaAgent: body.namaAgent,
       model: body.model,
       tone: body.tone,
       aktif: body.aktif,
-    }).where(eq(aiSettings.tenantId, tenantId)).returning();
+      provider: body.provider || "openai",
+      baseUrl: body.baseUrl || null,
+    };
+
+    if (body.apiKey && body.apiKey !== "••••••••••••") {
+      updateData.apiKey = body.apiKey;
+    }
+
+    const updatedSettings = await db.update(aiSettings).set(updateData).where(eq(aiSettings.tenantId, tenantId)).returning();
     
     if (updatedSettings.length === 0) {
-        const newSettings = await db.insert(aiSettings).values({
+        const insertData: any = {
             tenantId,
             systemPrompt: body.systemPrompt,
             namaAgent: body.namaAgent,
             model: body.model || "gpt-4o",
             tone: body.tone || "semi-formal",
             aktif: body.aktif !== undefined ? body.aktif : true,
-        }).returning();
-        return NextResponse.json(newSettings[0]);
+            provider: body.provider || "openai",
+            baseUrl: body.baseUrl || null,
+        };
+        if (body.apiKey && body.apiKey !== "••••••••••••") {
+            insertData.apiKey = body.apiKey;
+        }
+        const newSettings = await db.insert(aiSettings).values(insertData).returning();
+        
+        const responseSettings = { ...newSettings[0] };
+        if (responseSettings.apiKey) {
+          responseSettings.apiKey = "••••••••••••";
+        }
+        return NextResponse.json(responseSettings);
     }
 
-    return NextResponse.json(updatedSettings[0]);
+    const responseSettings = { ...updatedSettings[0] };
+    if (responseSettings.apiKey) {
+      responseSettings.apiKey = "••••••••••••";
+    }
+    return NextResponse.json(responseSettings);
   } catch (error) {
     console.error("PUT /api/ai-settings error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

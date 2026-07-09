@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { promos, promoProducts } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { promos, promoProducts, catalogItems } from "@/db/schema";
+import { eq, and, inArray } from "drizzle-orm";
 
 export async function PUT(
   req: Request,
@@ -23,10 +23,10 @@ export async function PUT(
       const [updatedPromo] = await tx.update(promos).set({
         judul: body.judul,
         deskripsi: body.deskripsi || "",
-        tipe: body.tipe,
+        tipe: body.tipe || "produk",
         kodeVoucher: body.kodeVoucher || null,
-        diskonTipe: body.diskonTipe,
-        diskonValue: parseInt(body.diskonValue, 10) || 0,
+        diskonTipe: body.diskonTipe || "persen",
+        diskonValue: body.diskonValue ? parseInt(body.diskonValue, 10) : 0,
         minPembelian: body.minPembelian ? parseInt(body.minPembelian, 10) : 0,
         maxPotongan: body.maxPotongan ? parseInt(body.maxPotongan, 10) : null,
         targetTipe: body.targetTipe,
@@ -44,10 +44,25 @@ export async function PUT(
 
       // Insert new if target is pilihan
       if (body.targetTipe === 'pilihan' && body.selectedProducts?.length > 0) {
-        const productEntries = body.selectedProducts.map((pid: string) => ({
+        const selectedIds = body.selectedProducts as string[];
+        
+        // Find which IDs belong to catalogItems
+        const catalogMatches = await tx
+          .select({ id: catalogItems.id })
+          .from(catalogItems)
+          .where(and(
+            eq(catalogItems.tenantId, tenantId),
+            inArray(catalogItems.id, selectedIds)
+          ));
+          
+        const catalogIds = new Set(catalogMatches.map((c) => c.id));
+
+        const productEntries = selectedIds.map((pid: string) => ({
           promoId: id,
-          productId: pid,
+          productId: catalogIds.has(pid) ? null : pid,
+          catalogItemId: catalogIds.has(pid) ? pid : null,
         }));
+        
         await tx.insert(promoProducts).values(productEntries);
       }
 

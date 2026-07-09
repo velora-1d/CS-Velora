@@ -10,7 +10,7 @@ export async function sendWhatsAppMessage(tenantId: string, to: string, message:
   if (!tenant) throw new Error("Tenant not found");
 
   if (tenant.waProvider === "fonnte") {
-    return sendFonnteMessage(tenant.waApiKey || "", to, message);
+    return sendFonnteMessage(tenant.waApiKey || process.env.FONNTE_API_KEY || process.env.FONNTE_TOKEN || "", to, message);
   } else if (tenant.waProvider === "waha") {
     return sendWahaMessage(tenant.waSessionId || "default", to, message);
   }
@@ -26,7 +26,7 @@ export async function setWhatsAppPresence(tenantId: string, to: string, presence
   if (!tenant) return;
 
   if (tenant.waProvider === "fonnte" && presence === "typing") {
-    return setFonntePresence(tenant.waApiKey || "", to);
+    return setFonntePresence(tenant.waApiKey || process.env.FONNTE_API_KEY || process.env.FONNTE_TOKEN || "", to);
   } else if (tenant.waProvider === "waha") {
     return setWahaPresence(tenant.waSessionId || "default", to, presence);
   }
@@ -54,8 +54,8 @@ async function sendFonnteMessage(apiKey: string, to: string, message: string) {
 }
 
 async function sendWahaMessage(session: string, to: string, message: string) {
-  const baseUrl = process.env.WAHA_URL || "http://localhost:3000";
-  const wahaSecret = process.env.WAHA_SECRET;
+  const baseUrl = process.env.WAHA_URL || process.env.WAHA_API_URL || "http://localhost:3000";
+  const wahaSecret = process.env.WAHA_SECRET || process.env.WAHA_API_KEY;
 
   const res = await fetch(`${baseUrl}/api/sendText`, {
     method: "POST",
@@ -93,8 +93,8 @@ async function setFonntePresence(apiKey: string, to: string) {
 
 async function setWahaPresence(session: string, to: string, presence: "typing" | "paused") {
   try {
-    const baseUrl = process.env.WAHA_URL || "http://localhost:3000";
-    const wahaSecret = process.env.WAHA_SECRET;
+    const baseUrl = process.env.WAHA_URL || process.env.WAHA_API_URL || "http://localhost:3000";
+    const wahaSecret = process.env.WAHA_SECRET || process.env.WAHA_API_KEY;
 
     await fetch(`${baseUrl}/api/presence`, {
       method: "POST",

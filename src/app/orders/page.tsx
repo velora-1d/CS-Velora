@@ -8,7 +8,7 @@ import { id as localeId } from "date-fns/locale";
 const statusColors: Record<string, string> = {
   pending: "bg-[#F59E0B]/10 text-[#F59E0B]",
   konfirmasi: "bg-[#3B82F6]/10 text-[#3B82F6]",
-  proses: "bg-[#8B5CF6]/10 text-[#8B5CF6]",
+  proses: "bg-[#FFBF69]/10 text-[#FFBF69]",
   selesai: "bg-[#10B981]/10 text-[#10B981]",
   batal: "bg-[#EF4444]/10 text-[#EF4444]",
 };
@@ -84,33 +84,35 @@ export default function OrdersPage() {
 
       <div className="px-6 md:px-8 space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex gap-2 flex-wrap">
-            {["all", "pending", "konfirmasi", "proses", "selesai", "batal"].map(s => (
-              <button key={s} onClick={() => setFilter(s)} className={`px-3 py-1.5 rounded-lg text-sm transition-all ${filter === s ? "bg-[#3B82F6] text-white shadow-lg shadow-[#3B82F6]/20" : "bg-[rgba(255,255,255,0.05)] text-[#94A3B8] hover:text-white border border-[rgba(255,255,255,0.05)]"}`}>
-                {s === "all" ? "Semua" : s.charAt(0).toUpperCase() + s.slice(1)}
-              </button>
-            ))}
-          </div>
-          
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="flex items-center gap-2 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-1.5">
+          {/* Filter Tanggal (di kiri agar kalender tidak terpotong) */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+            <div className="flex items-center gap-2 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-1.5 w-full sm:w-auto">
               <span className="text-[10px] uppercase font-bold text-[#64748B]">Mulai</span>
               <input 
                 type="date" 
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="bg-transparent border-none text-xs text-[#F1F5F9] focus:outline-none focus:ring-0 [color-scheme:dark]"
+                className="bg-transparent border-none text-xs text-[#F1F5F9] focus:outline-none focus:ring-0 [color-scheme:dark] w-full"
               />
             </div>
-            <div className="flex items-center gap-2 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-1.5">
+            <div className="flex items-center gap-2 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-1.5 w-full sm:w-auto">
               <span className="text-[10px] uppercase font-bold text-[#64748B]">Sampai</span>
               <input 
                 type="date" 
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="bg-transparent border-none text-xs text-[#F1F5F9] focus:outline-none focus:ring-0 [color-scheme:dark]"
+                className="bg-transparent border-none text-xs text-[#F1F5F9] focus:outline-none focus:ring-0 [color-scheme:dark] w-full"
               />
             </div>
+          </div>
+
+          {/* Filter Status (di kanan) */}
+          <div className="flex gap-2 flex-wrap lg:justify-end">
+            {["all", "pending", "konfirmasi", "proses", "selesai", "batal"].map(s => (
+              <button key={s} onClick={() => setFilter(s)} className={`px-3 py-1.5 rounded-lg text-sm transition-all ${filter === s ? "bg-[#3B82F6] text-white shadow-lg shadow-[#3B82F6]/20" : "bg-[rgba(255,255,255,0.05)] text-[#94A3B8] hover:text-white border border-[rgba(255,255,255,0.05)]"}`}>
+                {s === "all" ? "Semua" : s.charAt(0).toUpperCase() + s.slice(1)}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -140,14 +142,32 @@ export default function OrdersPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-16 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <Loader2 className="h-8 w-8 animate-spin text-[#3B82F6]" />
-                      <p className="text-[#94A3B8]">Memuat data pesanan...</p>
-                    </div>
-                  </td>
-                </tr>
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <tr key={idx} className="animate-pulse border-b border-[rgba(255,255,255,0.04)]">
+                    <td className="px-4 py-4">
+                      <div className="h-4 bg-white/5 rounded w-24 mb-2"></div>
+                      <div className="h-3 bg-white/5 rounded w-32"></div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-4 bg-white/5 rounded w-40"></div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-4 bg-white/5 rounded w-16"></div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-5 bg-white/5 rounded-full w-20"></div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-3 bg-white/5 rounded w-28"></div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex justify-end gap-2">
+                        <div className="h-8 w-8 bg-white/5 rounded-lg"></div>
+                        <div className="h-8 w-8 bg-white/5 rounded-lg"></div>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-16 text-center text-[#94A3B8]">

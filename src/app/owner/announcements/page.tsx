@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+
 export default function OwnerAnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,6 +18,39 @@ export default function OwnerAnnouncementsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({ judul: "", isi: "", prioritas: "medium" });
+
+  // --- Confirm Modal State ---
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void;
+    isDanger?: boolean;
+  }>({
+    isOpen: false,
+    message: "",
+    onConfirm: () => {},
+  });
+
+  const showConfirm = (options: {
+    title?: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void;
+    isDanger?: boolean;
+  }) => {
+    setConfirmConfig({
+      isOpen: true,
+      ...options,
+    });
+  };
+
+  const closeConfirm = () => {
+    setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+  };
 
   const filteredAnnouncements = announcements.filter((a) => {
     const matchesSearch = a.judul.toLowerCase().includes(search.toLowerCase()) || 
@@ -70,22 +105,29 @@ export default function OwnerAnnouncementsPage() {
   };
 
   const handleDelete = async (id: string, judul: string) => {
-    if (!confirm(`Hapus pengumuman "${judul}"?`)) return;
+    showConfirm({
+      title: "Hapus Pengumuman",
+      message: `Hapus pengumuman "${judul}"?`,
+      confirmLabel: "Hapus",
+      cancelLabel: "Batal",
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/owner/announcements/${id}`, {
+            method: "DELETE",
+          });
 
-    try {
-      const res = await fetch(`/api/owner/announcements/${id}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        toast.success("Pengumuman dihapus");
-        setAnnouncements(announcements.filter((a) => a.id !== id));
-      } else {
-        throw new Error("Gagal menghapus");
+          if (res.ok) {
+            toast.success("Pengumuman dihapus");
+            setAnnouncements(announcements.filter((a) => a.id !== id));
+          } else {
+            throw new Error("Gagal menghapus");
+          }
+        } catch {
+          toast.error("Gagal menghapus pengumuman");
+        }
       }
-    } catch (error: any) {
-      toast.error(error.message);
-    }
+    });
   };
 
   return (
@@ -133,8 +175,23 @@ export default function OwnerAnnouncementsPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center p-12">
-          <Loader2 className="w-8 h-8 animate-spin text-[#3B82F6]" />
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, idx) => (
+            <div key={idx} className="glass-card p-5 animate-pulse border border-white/5 space-y-4">
+              <div className="flex justify-between items-start gap-4">
+                <div className="flex-1 space-y-3">
+                  <div className="h-5 bg-white/5 rounded w-1/3"></div>
+                  <div className="h-3.5 bg-white/5 rounded w-5/6"></div>
+                  <div className="h-3.5 bg-white/5 rounded w-2/3"></div>
+                </div>
+                <div className="h-5 w-14 bg-white/5 rounded-full shrink-0"></div>
+              </div>
+              <div className="flex gap-4 pt-3 border-t border-white/5 text-xs">
+                <div className="h-3 bg-white/5 rounded w-24"></div>
+                <div className="h-3 bg-white/5 rounded w-32"></div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : filteredAnnouncements.length === 0 ? (
         <div className="glass-card overflow-hidden">
@@ -249,6 +306,20 @@ export default function OwnerAnnouncementsPage() {
           </div>
         </div>
       )}
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmLabel={confirmConfig.confirmLabel}
+        cancelLabel={confirmConfig.cancelLabel}
+        onConfirm={() => {
+          confirmConfig.onConfirm();
+          closeConfirm();
+        }}
+        onCancel={closeConfirm}
+        isDanger={confirmConfig.isDanger}
+      />
     </div>
   );
 }

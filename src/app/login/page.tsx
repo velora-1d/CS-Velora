@@ -1,17 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Loader2, Lock, Mail, Eye, EyeOff, CheckCircle2,
   Bot, BarChart3, ShieldCheck, CreditCard, Tag,
   HelpCircle, Database, Brain, ArrowRight
 } from "lucide-react";
-import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [logoUrl, setLogoUrl] = useState<string>("/logo-velora.png");
+
+  useEffect(() => {
+    const fetchBranding = async () => {
+      try {
+        const res = await fetch("/api/branding");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.system_login_logo) {
+            setLogoUrl(data.system_login_logo);
+          }
+        }
+      } catch (error) {
+        console.error("Gagal memuat logo branding login:", error);
+      }
+    };
+    fetchBranding();
+  }, []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -85,7 +103,15 @@ export default function LoginPage() {
           {/* Logo */}
           <div className="flex items-center gap-3.5">
             <div className="shrink-0 flex items-center justify-center">
-              <Image src="/logo-velora.png" alt="Velora Logo" width={40} height={40} className="object-contain" priority />
+              <div className="w-10 h-10 overflow-hidden flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img 
+                  src={logoUrl} 
+                  alt="Velora Logo" 
+                  className="max-w-full max-h-full object-contain" 
+                  onError={(e) => { (e.target as HTMLImageElement).src = "/logo-velora.png"; }} 
+                />
+              </div>
             </div>
             <div>
               <p className="text-lg font-display font-bold text-[#F1F5F9] tracking-tight leading-none">Velora ID</p>
@@ -101,7 +127,7 @@ export default function LoginPage() {
             </div>
             <h2 className="text-4xl xl:text-5xl font-display font-bold text-[#F1F5F9] leading-[1.15] mb-12">
               Pusat Kendali{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#56D6FF] via-[#67A7FF] to-[#9D8CFF]">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#56D6FF] via-[#67A7FF] to-[#FFBF69]">
                 Bisnis Digital
               </span>{" "}
               Masa Depan.
@@ -134,14 +160,22 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center px-6 py-12 relative overflow-hidden">
         {/* Subtle bg glow on mobile */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-[#3B82F6]/8 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#9D8CFF]/8 rounded-full blur-[120px] translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#FFBF69]/8 rounded-full blur-[120px] translate-y-1/2 -translate-x-1/2 pointer-events-none" />
 
         <div className="w-full max-w-[420px] relative z-10">
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-10">
             <div className="inline-flex items-center gap-3 mb-1">
               <div className="flex items-center justify-center">
-                <Image src="/logo-velora.png" alt="Velora Logo" width={36} height={36} className="object-contain" priority />
+                <div className="w-9 h-9 overflow-hidden flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img 
+                  src={logoUrl} 
+                  alt="Velora Logo" 
+                  className="max-w-full max-h-full object-contain" 
+                  onError={(e) => { (e.target as HTMLImageElement).src = "/logo-velora.png"; }} 
+                />
+              </div>
               </div>
               <span className="text-2xl font-display font-bold text-[#F1F5F9]">Velora ID</span>
             </div>

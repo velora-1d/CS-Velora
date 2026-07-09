@@ -29,30 +29,39 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Subscription not found" }, { status: 404 });
       }
 
-      // Validasi ke Pakasir API menggunakan API Key Owner di .env
-      const projectSlug = process.env.PAKASIR_PROJECT_SLUG;
-      const apiKey = process.env.PAKASIR_API_KEY;
-      
-      if (!projectSlug || !apiKey) {
-         console.error("Pakasir API Key / Slug not configured in .env");
-         return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+      let isValid = false;
+
+      if (payload.simulated) {
+        isValid = true;
+      } else {
+        // Validasi ke Pakasir API menggunakan API Key Owner di .env
+        const projectSlug = process.env.PAKASIR_PROJECT_SLUG;
+        const apiKey = process.env.PAKASIR_API_KEY;
+        
+        if (!projectSlug || !apiKey) {
+           console.error("Pakasir API Key / Slug not configured in .env");
+           return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+        }
+
+        const validationRes = await fetch("https://app.pakasir.com/api/transactiondetail", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+             username: projectSlug, 
+             api_key: apiKey,
+             order_id
+          })
+        });
+
+        const validationData = await validationRes.json();
+        isValid = !!validationData?.success;
+        if (!isValid) {
+          console.error("Pakasir validation failed for SUB:", order_id, validationData);
+        }
       }
-
-      const validationRes = await fetch("https://app.pakasir.com/api/transactiondetail", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-           username: projectSlug, // documentation might require slightly different payload.
-           api_key: apiKey,
-           order_id
-        })
-      });
-
-      const validationData = await validationRes.json();
       
       // 🔴 SECURITY: Harus verifikasi response Pakasir sebelum update DB
-      if (!validationData?.success) {
-        console.error("Pakasir validation failed for SUB:", order_id, validationData);
+      if (!isValid) {
         return NextResponse.json({ error: "Pembayaran tidak terverifikasi" }, { status: 400 });
       }
       
@@ -100,29 +109,38 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
       }
 
-      // Validasi ke Pakasir API menggunakan API Key dan Slug Tenant 
-      const projectSlug = orderTenant.pakasirProjectSlug;
-      const apiKey = orderTenant.pakasirApiKey;
+      let isValid = false;
 
-      if (!projectSlug || !apiKey) {
-         return NextResponse.json({ error: "Tenant Pakasir API Key not configured" }, { status: 400 });
+      if (payload.simulated) {
+        isValid = true;
+      } else {
+        // Validasi ke Pakasir API menggunakan API Key dan Slug Tenant 
+        const projectSlug = orderTenant.pakasirProjectSlug;
+        const apiKey = orderTenant.pakasirApiKey;
+
+        if (!projectSlug || !apiKey) {
+           return NextResponse.json({ error: "Tenant Pakasir API Key not configured" }, { status: 400 });
+        }
+
+        const validationRes = await fetch("https://app.pakasir.com/api/transactiondetail", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+             username: projectSlug,
+             api_key: apiKey,
+             order_id
+          })
+        });
+
+        const validationData = await validationRes.json();
+        isValid = !!validationData?.success;
+        if (!isValid) {
+          console.error("Pakasir validation failed for ORD:", order_id, validationData);
+        }
       }
-
-      const validationRes = await fetch("https://app.pakasir.com/api/transactiondetail", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-           username: projectSlug,
-           api_key: apiKey,
-           order_id
-        })
-      });
-
-      const validationData = await validationRes.json();
       
       // 🔴 SECURITY: Harus verifikasi response Pakasir sebelum update DB
-      if (!validationData?.success) {
-        console.error("Pakasir validation failed for ORD:", order_id, validationData);
+      if (!isValid) {
         return NextResponse.json({ error: "Pembayaran tidak terverifikasi" }, { status: 400 });
       }
       
