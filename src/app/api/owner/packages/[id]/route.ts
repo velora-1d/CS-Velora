@@ -4,8 +4,13 @@ import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
 
 // PUT update paket
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
+    const { id } = await params;
+
     const session = await auth();
     if (!session?.user || (session.user as any).role !== "owner") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -32,7 +37,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         is_active         = ${isActive ?? true},
         sort_order        = ${sortOrder ?? 99},
         updated_at        = NOW()
-      WHERE id = ${params.id}
+      WHERE id = ${id}
       RETURNING *
     `);
 
@@ -48,15 +53,20 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 }
 
 // DELETE hapus paket
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
+    const { id } = await params;
+
     const session = await auth();
     if (!session?.user || (session.user as any).role !== "owner") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Cek key — jangan hapus basic/pro yang built-in
-    const pkg = await db.execute(sql`SELECT key FROM packages WHERE id = ${params.id}`);
+    const pkg = await db.execute(sql`SELECT key FROM packages WHERE id = ${id}`);
     if (pkg.rows.length === 0) {
       return NextResponse.json({ error: "Paket tidak ditemukan" }, { status: 404 });
     }
@@ -64,7 +74,7 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: "Paket bawaan (basic/pro) tidak bisa dihapus" }, { status: 400 });
     }
 
-    await db.execute(sql`DELETE FROM packages WHERE id = ${params.id}`);
+    await db.execute(sql`DELETE FROM packages WHERE id = ${id}`);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("DELETE /api/owner/packages/[id] error:", error);

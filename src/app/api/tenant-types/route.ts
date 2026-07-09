@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       label: f.label,
       fieldKey: f.fieldKey,
       fieldType: f.fieldType,
-      options: f.options,
+      options: f.options ?? undefined,
       isRequired: f.isRequired,
       isSystem: f.isSystem
     }));
