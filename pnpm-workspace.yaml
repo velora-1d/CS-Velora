@@ -1,22 +1,7 @@
-allowBuilds:
-  '@parcel/watcher': set this to true or false
-  '@swc/core': set this to true or false
-  core-js: set this to true or false
-  esbuild: set this to true or false
-  sharp: set this to true or false
-  unrs-resolver: set this to true or false
-minimumReleaseAgeExclude:
-  - '@aws-sdk/checksums@3.1000.14'
-  - '@aws-sdk/client-s3@3.1081.0'
-  - '@aws-sdk/core@3.974.29'
-  - '@aws-sdk/credential-provider-env@3.972.55'
-  - '@aws-sdk/credential-provider-http@3.972.57'
-  - '@aws-sdk/credential-provider-ini@3.972.62'
-  - '@aws-sdk/credential-provider-login@3.972.61'
-  - '@aws-sdk/credential-provider-node@3.972.64'
-  - '@aws-sdk/credential-provider-process@3.972.55'
-  - '@aws-sdk/credential-provider-sso@3.972.61'
-  - '@aws-sdk/credential-provider-web-identity@3.972.61'
-  - '@aws-sdk/middleware-sdk-s3@3.972.60'
-  - '@aws-sdk/nested-clients@3.997.29'
-  - '@aws-sdk/token-providers@3.1081.0'
+onlyBuiltDependencies:
+  - "@parcel/watcher"
+  - "@swc/core"
+  - core-js
+  - esbuild
+  - sharp
+  - unrs-resolver
