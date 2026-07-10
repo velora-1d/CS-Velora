@@ -264,30 +264,8 @@ export default function PromosPage() {
   return (
     <div className="space-y-6">
       <section className="hero-panel px-6 py-7 md:px-8">
-        <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <div>
-            <span className="section-kicker">Promotion engine</span>
-            <h1 className="mt-5 font-display text-4xl font-semibold text-[#F1F5F9] md:text-5xl">
-              Kelola promo yang langsung diketahui bot secara otomatis.
-            </h1>
-            <p className="mt-4 max-w-xl text-sm leading-7 text-[#93A8C7] md:text-base">
-              Promo aktif otomatis di-inject ke knowledge base AI. Expired otomatis ditandai.
-            </p>
-          </div>
-          <div className="panel-shell p-5">
-            <p className="text-xs uppercase tracking-[0.18em] text-[#56D6FF]">Promo pulse</p>
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <div className="metric-card p-4">
-                <p className="text-2xl font-semibold text-[#F1F5F9]">{promos.length}</p>
-                <p className="mt-1 text-xs leading-5 text-[#93A8C7]">Total promo</p>
-              </div>
-              <div className="metric-card p-4">
-                <p className="text-2xl font-semibold text-[#4ADE80]">{activeCount}</p>
-                <p className="mt-1 text-xs leading-5 text-[#93A8C7]">Aktif sekarang</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <h1 className="text-2xl font-bold text-[#F1F5F9]">Promo</h1>
+        <p className="text-[#94A3B8] text-sm mt-1">Kelola promo aktif. Bot otomatis tahu promo yang sedang berlaku.</p>
       </section>
 
       <div className="glass-card p-5 md:p-6">

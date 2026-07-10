@@ -13,6 +13,17 @@ const RATE_WINDOW = 60 * 1000; // 1 minute
 
 // ID Tenant Owner khusus untuk Fonnte CS — ambil dari env var, fallback ke hardcoded
 const OWNER_TENANT_ID = process.env.OWNER_TENANT_ID || "be8272d9-b74f-4184-9d4b-63322b07dfef";
+type AiPromptOverrides = Partial<{ systemPrompt: string; namaAgent: string; model: string; tone: string }>;
+
+function getRandomDelay(delayMin?: number | null, delayMax?: number | null) {
+  const min = Math.max(1000, delayMin || 3000);
+  const max = Math.max(min, delayMax || 9000);
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function isSupportMessage(message: string) {
+  return /\b(komplain|rusak|retur|refund|marah|kecewa|lambat|telat|tidak sesuai|nggak sesuai|admin|cs|manusia|cancel|batalkan)\b/i.test(message);
+}
 
 function isRateLimited(fromNumber: string): boolean {
   const now = Date.now();
@@ -352,42 +363,20 @@ export async function POST(req: Request) {
         };
       });
 
-      // Delay mengikuti setting dari dashboard Bot Settings (tanpa cap)
-      const delayMin = settings?.delayMin || 1000;
-      const delayMax = settings?.delayMax || 3000;
-      const delay = Math.floor(Math.random() * (delayMax - delayMin + 1)) + delayMin;
+      const delay = getRandomDelay(settings?.delayMin, settings?.delayMax);
 
       // Start typing indicator BEFORE AI call
       if (settings?.typingIndicator !== false) {
         await setWhatsAppPresence(tenant.id, messageData.from, "typing");
       }
 
-      // Phase 5: Multi-Agent Triage (Klasifikasi Intent Cepat)
-      let promptOverrides: any = undefined;
-      try {
-        const routerPrompt = `Kelasifikasikan intent pesan terakhir pengguna ke dalam 2 kategori:
-1. "sales": Bertanya produk, harga, ketersediaan, stok, ingin beli, sapaan halo.
-2. "support": Komplain, barang rusak, retur, marah, pengiriman lambat, masalah teknis, refund.
-Balas HANYA dengan satu kata persis: "sales" atau "support".`;
-        const baseUrl = process.env.SEED_AI_URL || "https://ai.sumopod.com/v1";
-        const apiKey = process.env.SEED_AI_API_KEY;
-        const routerModel = process.env.SEED_AI_MODEL || "gpt-4o-mini";
-        const routerRes = await fetch(`${baseUrl}/chat/completions`, {
-          method: "POST", headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: routerModel, messages: [{role: "system", content: routerPrompt}, {role: "user", content: messageData.body}], temperature: 0 })
-        });
-        if (routerRes.ok) {
-          const routerData = await routerRes.json();
-          const intent = routerData.choices[0].message.content.toLowerCase();
-          
-          if (intent.includes("support")) {
-            promptOverrides = {
-              systemPrompt: "Anda adalah asisten AI Customer Service. \n\n[MODE SUPPORT KOMPLAIN AKTIF: Sistem mendeteksi pelanggan ini sedang menyampaikan masalah. Tanggapi dengan NADA YANG SANGAT EMPATIK dan SANGAT MEMINTA MAAF jika ada ketidaknyamanan. JANGAN coba berjualan atau promosi apapun, fokus penuh pada mendengarkan masalah, meminta maaf, dan mencari jalan keluar / retur.]",
-              tone: "empatik, simpatik, penuh maaf, dan profesional"
-            };
-          }
-        }
-      } catch (e) { console.error("Router triage error:", e); }
+      let promptOverrides: AiPromptOverrides | undefined = undefined;
+      if (isSupportMessage(messageData.body)) {
+        promptOverrides = {
+          systemPrompt: "Anda adalah asisten AI Customer Service. \n\n[MODE SUPPORT KOMPLAIN AKTIF: Sistem mendeteksi pelanggan ini sedang menyampaikan masalah. Tanggapi dengan NADA YANG SANGAT EMPATIK dan SANGAT MEMINTA MAAF jika ada ketidaknyamanan. JANGAN coba berjualan atau promosi apapun, fokus penuh pada mendengarkan masalah, meminta maaf, dan mencari jalan keluar / retur.]",
+          tone: "empatik, simpatik, penuh maaf, dan profesional",
+        };
+      }
 
       // Jalankan delay dan AI completion secara paralel
       const [aiReply] = await Promise.all([

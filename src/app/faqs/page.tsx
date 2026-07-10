@@ -190,30 +190,8 @@ export default function FaqsPage() {
   return (
     <div className="space-y-6">
       <section className="hero-panel px-6 py-7 md:px-8">
-        <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <div>
-            <span className="section-kicker">Knowledge orchestration</span>
-            <h1 className="mt-5 font-display text-4xl font-semibold text-[#F1F5F9] md:text-5xl">
-              FAQ — basis pengetahuan yang langsung di-inject ke AI.
-            </h1>
-            <p className="mt-4 max-w-xl text-sm leading-7 text-[#93A8C7] md:text-base">
-              Setiap FAQ aktif otomatis menjadi bagian dari knowledge base bot. Tambah, edit, atau nonaktifkan tanpa perlu restart.
-            </p>
-          </div>
-          <div className="panel-shell p-5">
-            <p className="text-xs uppercase tracking-[0.18em] text-[#56D6FF]">FAQ pulse</p>
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <div className="metric-card p-4">
-                <p className="text-2xl font-semibold text-[#F1F5F9]">{faqs.length}</p>
-                <p className="mt-1 text-xs leading-5 text-[#93A8C7]">Total FAQ</p>
-              </div>
-              <div className="metric-card p-4">
-                <p className="text-2xl font-semibold text-[#4ADE80]">{activeCount}</p>
-                <p className="mt-1 text-xs leading-5 text-[#93A8C7]">Aktif di AI</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <h1 className="text-2xl font-bold text-[#F1F5F9]">FAQ</h1>
+        <p className="text-[#94A3B8] text-sm mt-1">Basis pengetahuan yang langsung di-inject ke AI. FAQ aktif otomatis dipakai bot.</p>
       </section>
 
       <div className="glass-card p-5 md:p-6 mb-6">

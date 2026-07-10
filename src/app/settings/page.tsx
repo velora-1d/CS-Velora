@@ -288,7 +288,7 @@ export default function SettingsPage() {
   // States: Tab 3 - AI Settings
   const [systemPrompt, setSystemPrompt] = useState("");
   const [namaAgent, setNamaAgent] = useState("");
-  const [model, setModel] = useState("gpt-4o");
+  const [model, setModel] = useState("");
   const [tone, setTone] = useState("semi-formal");
   const [aktif, setAktif] = useState(true);
   const [provider, setProvider] = useState("openai");
@@ -340,7 +340,7 @@ export default function SettingsPage() {
     if (isModelModalOpen) {
       fetchModels();
     }
-  }, [isModelModalOpen]);
+  }, [isModelModalOpen, provider, apiKey, baseUrl]);
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -486,7 +486,7 @@ export default function SettingsPage() {
       const data = await res.json();
       setSystemPrompt(data.systemPrompt || "");
       setNamaAgent(data.namaAgent || "");
-      setModel(data.model || "gpt-4o");
+      setModel(data.model || "");
       setTone(data.tone || "semi-formal");
       setAktif(data.aktif ?? true);
       setProvider(data.provider || "openai");
@@ -498,7 +498,11 @@ export default function SettingsPage() {
   const fetchModels = async () => {
     setLoadingModels(true);
     try {
-      const res = await fetch("/api/ai/models");
+      const res = await fetch("/api/ai/models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, apiKey, baseUrl }),
+      });
       if (res.ok) {
         const data = await res.json();
         setDynamicModels(data.data || []);
@@ -1378,7 +1382,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="glass-card p-6 space-y-4 lg:col-span-2">
+                <div className="glass-card !overflow-visible p-6 space-y-4 lg:col-span-2">
                   <h3 className="text-sm font-bold text-[#56D6FF] uppercase tracking-wider">Status & Pengaturan Bahasa</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="flex items-center justify-between rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-4">
@@ -1430,7 +1434,7 @@ export default function SettingsPage() {
           {/* TAB 3: KREDENSIAL AI & ASISTEN */}
           {activeTab === "ai" && (
             <div className="space-y-6 animate-in fade-in duration-200">
-              <div className="glass-card p-6 space-y-6">
+              <div className="glass-card !overflow-visible p-6 space-y-6">
                 <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.06)] pb-3">
                   <h2 className="text-lg font-bold text-white">Integrasi Provider LLM</h2>
                   <button onClick={() => setAktif(!aktif)} className={`flex items-center gap-2 transition-colors ${aktif ? "text-[#10B981]" : "text-[#94A3B8]"}`}>
@@ -1451,7 +1455,10 @@ export default function SettingsPage() {
                       <label className="block text-[10px] font-bold text-[#94A3B8] mb-2 uppercase tracking-wider">AI Provider</label>
                       <CustomDropdown
                         value={provider}
-                        onChange={(val) => setProvider(val)}
+                        onChange={(val) => {
+                          setProvider(val);
+                          setDynamicModels([]);
+                        }}
                         options={[
                           { value: "openai", label: "OpenAI (Official)" },
                           { value: "anthropic", label: "Anthropic Claude (Official)" },
@@ -1527,13 +1534,22 @@ export default function SettingsPage() {
                       <label className="block text-[10px] font-bold text-[#94A3B8] mb-2 uppercase tracking-wider">AI Model</label>
                       <div
                         onClick={() => setIsModelModalOpen(true)}
-                        className="w-full flex items-center justify-between px-4 py-2.5 bg-[#0A0F1E] border border-[rgba(255,255,255,0.08)] hover:border-[#3B82F6]/50 rounded-xl cursor-pointer transition-colors group"
+                        className={`w-full flex items-center justify-between px-4 py-2.5 bg-[#0A0F1E] rounded-xl cursor-pointer transition-colors group border ${!model ? 'border-[#FFBF69]/40 hover:border-[#FFBF69]/70' : 'border-[rgba(255,255,255,0.08)] hover:border-[#3B82F6]/50'}`}
                       >
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-sm font-medium text-[#F1F5F9] truncate group-hover:text-[#3B82F6] transition-colors">{model}</span>
-                          <span className="text-[9px] text-[#94A3B8] uppercase tracking-wider">{provider} provider</span>
+                          {model ? (
+                            <>
+                              <span className="text-sm font-medium text-[#F1F5F9] truncate group-hover:text-[#3B82F6] transition-colors">{model}</span>
+                              <span className="text-[9px] text-[#94A3B8] uppercase tracking-wider">{provider} provider</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-sm font-medium text-[#FFBF69]">⚠ Pilih Model dari Provider...</span>
+                              <span className="text-[9px] text-[#69809F]">Simpan API Key dulu, lalu klik untuk memilih model</span>
+                            </>
+                          )}
                         </div>
-                        <ChevronDown className="w-4 h-4 text-[#94A3B8] group-hover:text-[#3B82F6] transition-colors" />
+                        <ChevronDown className={`w-4 h-4 transition-colors ${!model ? 'text-[#FFBF69]' : 'text-[#94A3B8] group-hover:text-[#3B82F6]'}`} />
                       </div>
                     </div>
                   </div>

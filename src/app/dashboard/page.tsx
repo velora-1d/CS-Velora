@@ -160,58 +160,32 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <section className="hero-panel relative overflow-hidden px-6 py-7 md:px-8 md:py-9">
-        <div className="absolute inset-y-0 right-0 hidden w-72 bg-[radial-gradient(circle_at_center,rgba(86,214,255,0.18),transparent_70%)] blur-2xl lg:block" />
-        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
-            <span className="section-kicker">Velora Operations Grid</span>
-            <h1 className="mt-5 font-display text-4xl font-semibold tracking-[-0.06em] text-[#F1F5F9] md:text-5xl">
-              Pusat kendali untuk memantau performa operasional bisnis dalam satu pandangan.
-            </h1>
-            <p className="mt-4 max-w-xl text-sm leading-7 text-[#93A8C7] md:text-base">
-              Pantau order masuk, kesehatan sistem WhatsApp, slot konsultasi, dan beban kerja tim tanpa harus berpindah tab.
-            </p>
-          </div>
-          <div className="panel-shell flex min-w-[280px] flex-col gap-4 p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-[#56D6FF]">
-                  Snapshot
-                </p>
-                <p className="mt-2 font-display text-2xl text-[#F1F5F9]">
-                  Hari aktif
-                </p>
-              </div>
-              <span className="status-pill bg-[#4ADE80]/10 text-[#4ADE80]">
-                <span className="h-2 w-2 rounded-full bg-current" />
+      <section className="hero-panel relative overflow-hidden px-6 py-4 rounded-2xl">
+        <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="section-kicker">Dasbor Utama</span>
+              <span className="status-pill bg-[#4ADE80]/10 text-[#4ADE80] py-0.5 px-2 text-[10px]">
+                <span className="h-1.5 w-1.5 rounded-full bg-current mr-1 inline-block animate-pulse" />
                 Live
               </span>
             </div>
-            <p className="text-sm text-[#93A8C7]">
-              {new Date().toLocaleDateString("id-ID", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })}
+            <h1 className="font-display text-xl font-bold tracking-tight text-[#F1F5F9] mt-1">
+              Pantau Performa Operasional Velora
+            </h1>
+            <p className="text-xs text-[#93A8C7] max-w-xl">
+              Hari ini: {new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
             </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="metric-card p-4">
-                <p className="text-xs uppercase tracking-[0.14em] text-[#69809F]">
-                  Revenue
-                </p>
-                <p className="mt-2 text-lg font-semibold text-[#4ADE80]">
-                  {formatRupiah(stats.totalRevenue)}
-                </p>
-              </div>
-              <div className="metric-card p-4">
-                <p className="text-xs uppercase tracking-[0.14em] text-[#69809F]">
-                  Pending
-                </p>
-                <p className="mt-2 text-lg font-semibold text-[#FFBF69]">
-                  {stats.pendingOrders} aksi
-                </p>
-              </div>
+          </div>
+          
+          <div className="flex items-center gap-3 shrink-0 bg-white/3 border border-white/5 rounded-xl p-2.5">
+            <div className="px-3 border-r border-white/10">
+              <p className="text-[10px] uppercase tracking-wider text-[#69809F]">Pendapatan</p>
+              <p className="text-sm font-bold text-[#4ADE80] mt-0.5">{formatRupiah(stats.totalRevenue)}</p>
+            </div>
+            <div className="px-3">
+              <p className="text-[10px] uppercase tracking-wider text-[#69809F]">Tertunda</p>
+              <p className="text-sm font-bold text-[#FFBF69] mt-0.5">{stats.pendingOrders} aksi</p>
             </div>
           </div>
         </div>

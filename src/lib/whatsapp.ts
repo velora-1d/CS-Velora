@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { tenants } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { tenants, waSessions } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 export async function sendWhatsAppMessage(tenantId: string, to: string, message: string) {
   const tenant = await db.query.tenants.findFirst({
@@ -12,7 +12,16 @@ export async function sendWhatsAppMessage(tenantId: string, to: string, message:
   if (tenant.waProvider === "fonnte") {
     return sendFonnteMessage(tenant.waApiKey || process.env.FONNTE_API_KEY || process.env.FONNTE_TOKEN || "", to, message);
   } else if (tenant.waProvider === "waha") {
-    return sendWahaMessage(tenant.waSessionId || "default", to, message);
+    // Lookup active WAHA session from waSessions table (multi-device support)
+    const activeSession = await db.query.waSessions.findFirst({
+      where: and(
+        eq(waSessions.tenantId, tenantId),
+        eq(waSessions.status, "connected")
+      ),
+    });
+    // Fallback to any session or legacy waSessionId if no connected session found
+    const sessionId = activeSession?.sessionId || tenant.waSessionId || "default";
+    return sendWahaMessage(sessionId, to, message);
   }
   
   throw new Error("No WA provider configured for tenant");
@@ -28,7 +37,15 @@ export async function setWhatsAppPresence(tenantId: string, to: string, presence
   if (tenant.waProvider === "fonnte" && presence === "typing") {
     return setFonntePresence(tenant.waApiKey || process.env.FONNTE_API_KEY || process.env.FONNTE_TOKEN || "", to);
   } else if (tenant.waProvider === "waha") {
-    return setWahaPresence(tenant.waSessionId || "default", to, presence);
+    // Lookup active WAHA session from waSessions table (multi-device support)
+    const activeSession = await db.query.waSessions.findFirst({
+      where: and(
+        eq(waSessions.tenantId, tenantId),
+        eq(waSessions.status, "connected")
+      ),
+    });
+    const sessionId = activeSession?.sessionId || tenant.waSessionId || "default";
+    return setWahaPresence(sessionId, to, presence);
   }
 }
 

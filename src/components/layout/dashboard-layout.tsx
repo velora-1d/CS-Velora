@@ -42,7 +42,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         onClose={() => setIsSidebarOpen(false)} 
       />
       
-      <main className="min-h-screen pt-20 md:pt-8 md:ml-64 px-4 md:px-6 py-4 md:py-6 transition-all duration-300">
+      <main className="min-h-screen pt-14 md:pt-6 md:ml-64 px-4 md:px-6 py-4 md:py-6 transition-all duration-300">
         <div className="max-w-none w-full">
           {children}
         </div>

@@ -156,7 +156,8 @@ export async function getAiCompletion(
   const finalSettings = {
     systemPrompt: overrides?.systemPrompt ?? settings?.systemPrompt ?? "You are a helpful assistant.",
     namaAgent: overrides?.namaAgent ?? settings?.namaAgent ?? "Velora",
-    model: overrides?.model ?? settings?.model ?? process.env.SEED_AI_MODEL ?? "gpt-4o",
+    // Model HARUS dikonfigurasi dari dashboard, tidak ada fallback hardcoded
+    model: overrides?.model ?? settings?.model ?? "",
     tone: overrides?.tone ?? settings?.tone ?? "semi-formal",
     aktif: settings?.aktif ?? true,
     provider: settings?.provider || "openai",
@@ -227,8 +228,13 @@ ATURAN KOMUNIKASI:
   let baseUrl = finalSettings.baseUrl;
 
   if (!apiKey || apiKey === "••••••••••••") {
-    console.warn(`[AI] Tenant ${tenantId} has not configured their custom API Key.`);
-    return null; // Silent skip/do not respond if no custom key is configured
+    console.warn(`[AI] Tenant ${tenantId} has not configured their API Key. Skipping.`);
+    return null; // Silent skip — user must configure API Key in dashboard
+  }
+
+  if (!finalSettings.model) {
+    console.warn(`[AI] Tenant ${tenantId} has not configured an AI Model. Skipping.`);
+    return null; // Silent skip — user must select a model in dashboard
   }
   
   if (!baseUrl) {
@@ -237,12 +243,10 @@ ATURAN KOMUNIKASI:
     } else if (finalSettings.provider === "anthropic") {
       baseUrl = "https://api.anthropic.com/v1";
     } else {
-      console.warn(`[AI] Tenant ${tenantId} selected custom provider but did not specify baseUrl.`);
+      console.warn(`[AI] Tenant ${tenantId} selected custom provider but did not specify Base URL.`);
       return null;
     }
   }
-
-  if (!apiKey) throw new Error("AI API Key is not configured for this tenant or globally.");
 
   const isAnthropicStyle = finalSettings.provider === "anthropic" || finalSettings.provider === "anthropic_compatible";
   let apiEndpoint = "";

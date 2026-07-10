@@ -1,7 +1,9 @@
 allowBuilds:
   "@parcel/watcher": true
   "@swc/core": true
+  '@whiskeysockets/baileys': false
   core-js: true
   esbuild: true
+  protobufjs: false
   sharp: true
   unrs-resolver: true

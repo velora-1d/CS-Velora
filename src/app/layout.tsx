@@ -19,7 +19,12 @@ export const metadata: Metadata = {
   title: "Velora Control Room",
   description: "WA Chatbot Admin Panel untuk operasi bisnis Velora ID",
   icons: {
-    icon: "/logo-velora.png",
+    icon: [
+      { url: "/favicon-velora.png", type: "image/png", sizes: "64x64" },
+      { url: "/logo-velora.jpg", type: "image/jpeg" },
+    ],
+    apple: "/logo-velora.jpg",
+    shortcut: "/favicon-velora.png",
   },
 };
 

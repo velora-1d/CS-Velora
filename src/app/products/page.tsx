@@ -438,9 +438,14 @@ export default function CatalogItemsPage() {
 
   // Determine important fields to show in the table columns (excluding system fields)
   // Let's show up to 2 active custom fields.
-  const activeCustomFields = fields.filter((f) => !f.isSystem && f.isActive).slice(0, 2);
+  const activeCustomFields = fields.filter((f) => !f.isSystem && f.isActive && f.fieldType !== "upload").slice(0, 2);
   const isHargaActive = fields.some((f) => f.fieldKey === "harga" && f.isActive);
   const isStatusActive = fields.some((f) => f.fieldKey === "aktif" && f.isActive);
+  // Find if there's any image upload field to use as thumbnail
+  const imageUploadField = fields.find((f) => f.isActive && f.fieldType === "upload" && 
+    (f.fieldKey === "gambar" || f.fieldKey === "foto" || f.fieldKey === "image" || f.fieldKey === "thumbnail"
+      || f.label.toLowerCase().includes("gambar") || f.label.toLowerCase().includes("foto")
+    ));
 
   // Statistics counters
   const totalItemsCount = pagination.total;
@@ -473,38 +478,37 @@ export default function CatalogItemsPage() {
   return (
     <div className="space-y-6">
       {/* Hero Header */}
-      <section className="hero-panel px-6 py-7 md:px-8">
-        <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <div>
-            <span className="section-kicker">Dynamic Catalog Orchestrator</span>
-            <h1 className="mt-5 font-display text-4xl font-semibold text-[#F1F5F9] md:text-5xl">
-              Panel Pengaturan {catalogLabel} Anda.
+      <section className="hero-panel relative overflow-hidden px-6 py-4 rounded-2xl">
+        <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="space-y-1">
+            <span className="section-kicker">Katalog Bisnis</span>
+            <h1 className="font-display text-xl font-bold tracking-tight text-[#F1F5F9] mt-1">
+              Pengaturan {catalogLabel} Anda
             </h1>
-            <p className="mt-4 max-w-xl text-sm leading-7 text-[#93A8C7] md:text-base">
-              Kelola katalog bisnis Anda secara dinamis. Tambahkan kolom kustom seperti ukuran, lokasi, tanggal, spesifikasi, dan lainnya untuk melatih asisten AI Anda.
+            <p className="text-xs text-[#93A8C7]">
+              Kelola katalog bisnis secara dinamis. Tambahkan kolom kustom untuk melatih asisten AI Anda.
             </p>
           </div>
-          <div className="panel-shell p-5">
-            <p className="text-xs uppercase tracking-[0.18em] text-[#56D6FF]">
-              Status Ringkas Katalog
-            </p>
-            <div className="mt-5 grid grid-cols-3 gap-3">
-              {metricCards.map((metric) => (
-                <div key={metric.label} className="metric-card p-4">
-                  <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${metric.bg} ${metric.color}`}>
-                    <metric.icon className="h-5 w-5" />
-                  </div>
-                  <p className="mt-4 text-2xl font-semibold text-[#F1F5F9]">{metric.value}</p>
-                  <p className="mt-1 text-xs leading-5 text-[#93A8C7]">{metric.label}</p>
-                </div>
-              ))}
+          
+          <div className="flex items-center gap-3 shrink-0 bg-white/3 border border-white/5 rounded-xl p-2.5">
+            <div className="px-3 border-r border-white/10 text-center">
+              <p className="text-[10px] uppercase tracking-wider text-[#69809F]">Total {catalogLabel}</p>
+              <p className="text-sm font-bold text-[#56D6FF] mt-0.5">{totalItemsCount}</p>
+            </div>
+            <div className="px-3 border-r border-white/10 text-center">
+              <p className="text-[10px] uppercase tracking-wider text-[#69809F]">Kolom Kustom</p>
+              <p className="text-sm font-bold text-[#4ADE80] mt-0.5">{customFieldsCount}</p>
+            </div>
+            <div className="px-3 text-center">
+              <p className="text-[10px] uppercase tracking-wider text-[#69809F]">Format</p>
+              <p className="text-sm font-bold text-[#FFBF69] mt-0.5">{fields.length}</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Template Bisnis Selector */}
-      <div className="glass-card px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+      <div className="glass-card !overflow-visible z-30 relative px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-[#56D6FF]/10 border border-[#56D6FF]/20 flex items-center justify-center shrink-0">
             <Settings className="w-4 h-4 text-[#56D6FF]" />
@@ -668,11 +672,22 @@ export default function CatalogItemsPage() {
                     key={item.id}
                     className="border-b border-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.02)] transition-colors"
                   >
-                    {/* Item Name & Details */}
+                    {/* Item Name & Image Thumbnail */}
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(255,255,255,0.05)] text-[#93A8C7]">
-                          <Package className="h-5 w-5" />
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(255,255,255,0.05)] text-[#93A8C7] overflow-hidden shrink-0">
+                          {imageUploadField && item.data[imageUploadField.fieldKey] && 
+                            String(item.data[imageUploadField.fieldKey]).match(/\.(jpeg|jpg|gif|png|webp|svg)/i) ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img 
+                              src={String(item.data[imageUploadField.fieldKey])} 
+                              alt={item.nama}
+                              className="w-full h-full object-cover"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            />
+                          ) : (
+                            <Package className="h-5 w-5" />
+                          )}
                         </div>
                         <div>
                           <p className="font-medium text-[#F1F5F9]">{item.nama}</p>
@@ -973,10 +988,16 @@ function UploadField({ value, onChange, placeholder }: UploadFieldProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File terlalu besar (Maksimal 10MB)");
+      return;
+    }
+
     try {
       setUploading(true);
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("folder", "catalog"); // RustFS folder path
 
       const res = await fetch("/api/upload", {
         method: "POST",
@@ -986,7 +1007,7 @@ function UploadField({ value, onChange, placeholder }: UploadFieldProps) {
       const data = await res.json();
       if (res.ok && data.url) {
         onChange(data.url);
-        toast.success("Berkas berhasil diunggah");
+        toast.success("Gambar berhasil diunggah ke RustFS");
       } else {
         toast.error(data.error || "Gagal mengunggah berkas");
       }
@@ -997,30 +1018,51 @@ function UploadField({ value, onChange, placeholder }: UploadFieldProps) {
     }
   };
 
+  const isImage = value && value.match(/\.(jpeg|jpg|gif|png|webp|svg)/i);
+
   return (
     <div className="space-y-2">
       {value ? (
-        <div className="relative group w-full max-w-[200px] h-[150px] rounded-xl overflow-hidden border border-[rgba(255,255,255,0.08)] bg-white/5 flex items-center justify-center">
-          {value.match(/\.(jpeg|jpg|gif|png|webp|svg)/i) ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={value} alt="Pratinjau" className="w-full h-full object-cover" />
+        <div className="space-y-2">
+          {/* Preview */}
+          {isImage ? (
+            <div className="relative group w-full h-[160px] rounded-xl overflow-hidden border border-[rgba(255,255,255,0.08)] bg-white/5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={value} alt="Pratinjau Gambar" className="w-full h-full object-contain p-1" />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => onChange("")}
+                  className="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded-lg text-white text-xs font-bold transition-all"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Hapus Gambar
+                </button>
+              </div>
+            </div>
           ) : (
-            <div className="flex flex-col items-center gap-1 text-[#93A8C7]">
-              <FileText className="h-10 w-10 text-[#56D6FF]" />
-              <span className="text-[10px] truncate max-w-[150px] px-2">{value.split("/").pop()}</span>
+            <div className="relative group flex items-center gap-3 rounded-xl border border-[rgba(255,255,255,0.08)] bg-white/5 p-3">
+              <FileText className="h-8 w-8 text-[#56D6FF] shrink-0" />
+              <span className="text-xs text-[#93A8C7] truncate flex-1">{value.split("/").pop()}</span>
+              <button
+                type="button"
+                onClick={() => onChange("")}
+                className="p-1.5 bg-black/40 hover:bg-red-600 rounded-lg text-white transition-all shrink-0"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
           )}
-          
-          <button
-            type="button"
-            onClick={() => onChange("")}
-            className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-red-600 rounded-lg text-white opacity-0 group-hover:opacity-100 transition-all"
-          >
-            <X className="h-4 w-4" />
-          </button>
+
+          {/* Replace button */}
+          <label className="flex items-center justify-center gap-2 w-full py-2 border border-dashed border-[rgba(255,255,255,0.1)] hover:border-[#56D6FF]/40 rounded-xl text-xs text-[#69809F] hover:text-[#56D6FF] cursor-pointer transition-all">
+            <Upload className="h-3.5 w-3.5" />
+            Ganti Gambar
+            <input type="file" className="hidden" onChange={handleFileChange} disabled={uploading} accept="image/*,application/pdf" />
+          </label>
         </div>
       ) : (
-        <label className="flex flex-col items-center justify-center border border-dashed border-[rgba(255,255,255,0.15)] hover:border-[#56D6FF]/40 bg-white/3 hover:bg-[#56D6FF]/3 rounded-xl p-5 cursor-pointer transition-all group">
+        <label className="flex flex-col items-center justify-center border-2 border-dashed border-[rgba(255,255,255,0.12)] hover:border-[#56D6FF]/50 bg-white/2 hover:bg-[#56D6FF]/5 rounded-xl p-6 cursor-pointer transition-all group">
           <input
             type="file"
             className="hidden"
@@ -1030,14 +1072,17 @@ function UploadField({ value, onChange, placeholder }: UploadFieldProps) {
           />
           {uploading ? (
             <div className="flex flex-col items-center gap-2 text-[#93A8C7]">
-              <Loader2 className="h-6 w-6 animate-spin text-[#56D6FF]" />
-              <span className="text-xs">Mengunggah...</span>
+              <Loader2 className="h-8 w-8 animate-spin text-[#56D6FF]" />
+              <span className="text-xs font-medium">Mengunggah ke RustFS...</span>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2 text-[#93A8C7] group-hover:text-[#F1F5F9]">
-              <Upload className="h-6 w-6 text-[#69809F] group-hover:text-[#56D6FF] transition-colors" />
-              <span className="text-xs font-medium">{placeholder || "Klik untuk pilih berkas"}</span>
-              <span className="text-[10px] text-[#69809F]">Maks. 5MB (Gambar / PDF)</span>
+              <div className="w-12 h-12 rounded-xl bg-[#56D6FF]/10 flex items-center justify-center group-hover:bg-[#56D6FF]/20 transition-all">
+                <Upload className="h-6 w-6 text-[#56D6FF]" />
+              </div>
+              <span className="text-xs font-semibold mt-1">{placeholder || "Klik untuk pilih gambar"}</span>
+              <span className="text-[10px] text-[#69809F]">PNG, JPG, WEBP • Maks. 10MB</span>
+              <span className="text-[9px] text-[#4A6080] mt-1">Tersimpan di RustFS Object Storage</span>
             </div>
           )}
         </label>
@@ -1045,6 +1090,7 @@ function UploadField({ value, onChange, placeholder }: UploadFieldProps) {
     </div>
   );
 }
+
 
 // ─── MODAL TEMPLATE KUSTOM ───────────────────────────────────────────────────
 interface CustomTemplateModalProps {

@@ -21,9 +21,9 @@ export async function GET() {
         // Create default if not exists
         const newSettings = await db.insert(aiSettings).values({
             tenantId,
-            systemPrompt: "You are a helpful assistant.",
+            systemPrompt: "",
             namaAgent: "Velora",
-            model: "gpt-4o",
+            model: "",
             provider: "openai",
         }).returning();
         settings = newSettings[0];
@@ -73,7 +73,7 @@ export async function PUT(req: Request) {
             tenantId,
             systemPrompt: body.systemPrompt,
             namaAgent: body.namaAgent,
-            model: body.model || "gpt-4o",
+            model: body.model || "",
             tone: body.tone || "semi-formal",
             aktif: body.aktif !== undefined ? body.aktif : true,
             provider: body.provider || "openai",

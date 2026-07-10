@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { waSessions } from "@/db/schema";
+import { waSessions, chatLogs } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
 // POST /api/whatsapp/sessions/[id]/sync — Sync status sesi dari WAHA ke DB
@@ -56,9 +56,78 @@ export async function POST(
       .where(eq(waSessions.id, id))
       .returning();
 
+    // SINKRONISASI MASSAL HISTORI CHAT DARI WHATSAPP HP JIKA BARU TERHUBUNG
+    if (dbStatus === "connected") {
+      // Jalankan proses sinkronisasi secara asinkron (background) agar response API tetap cepat
+      (async () => {
+        try {
+          console.log(`[WA Sync] Memulai impor riwayat chat untuk sesi: ${waSession.sessionId}`);
+          const chatsRes = await fetch(`${wahaBaseUrl}/api/${waSession.sessionId}/chats`, {
+            headers: { ...(wahaApiKey ? { "X-Api-Key": wahaApiKey } : {}) }
+          });
+
+          if (chatsRes.ok) {
+            const chats = await chatsRes.json();
+            if (Array.isArray(chats)) {
+              // Batasi impor maksimal ke 15 kontak chat teratas agar tidak membebani server
+              const activeChats = chats.slice(0, 15);
+              for (const chat of activeChats) {
+                const contactNumber = chat.id.split("@")[0];
+                if (chat.id.includes("@g.us") || !contactNumber) continue;
+
+                // Ambil hingga 30 riwayat pesan terakhir dari WhatsApp HP untuk kontak ini
+                const messagesRes = await fetch(
+                  `${wahaBaseUrl}/api/${waSession.sessionId}/messages?chatId=${encodeURIComponent(chat.id)}&limit=30`,
+                  { headers: { ...(wahaApiKey ? { "X-Api-Key": wahaApiKey } : {}) } }
+                );
+
+                if (messagesRes.ok) {
+                  const messagesList = await messagesRes.json();
+                  if (Array.isArray(messagesList)) {
+                    for (const msg of messagesList) {
+                      const body = msg.body || "";
+                      if (!body) continue;
+
+                      const timestamp = msg.timestamp ? new Date(msg.timestamp * 1000) : new Date();
+
+                      // Cek duplikasi log pesan
+                      const existing = await db.query.chatLogs.findFirst({
+                        where: and(
+                          eq(chatLogs.tenantId, tenantId),
+                          eq(chatLogs.fromNumber, contactNumber),
+                          eq(chatLogs.timestamp, timestamp)
+                        ),
+                      });
+
+                      if (!existing) {
+                        await db.insert(chatLogs).values({
+                          tenantId,
+                          fromNumber: contactNumber,
+                          fromName: chat.name || null,
+                          message: msg.fromMe ? "" : body,
+                          reply: msg.fromMe ? body : "",
+                          isAi: false,
+                          isHuman: msg.fromMe || false,
+                          timestamp,
+                        });
+                      }
+                    }
+                  }
+                }
+              }
+              console.log(`[WA Sync] Impor massal selesai untuk sesi: ${waSession.sessionId}`);
+            }
+          }
+        } catch (syncErr) {
+          console.error("Gagal melakukan impor riwayat chat dari HP:", syncErr);
+        }
+      })();
+    }
+
     return NextResponse.json({ success: true, status: dbStatus, session: updated });
   } catch (error) {
     console.error("Sync session error:", error);
     return NextResponse.json({ error: "Gagal sync status sesi" }, { status: 500 });
   }
 }
+
