@@ -48,6 +48,46 @@ export async function POST(req: Request) {
 
     console.log("Incoming Webhook:", JSON.stringify(body, null, 2));
 
+    // Handle WAHA session status events
+    if (body.event === "session.authenticated" || body.event === "session.started") {
+      const sessionName = body.session;
+      if (sessionName) {
+        const waSession = await db.query.waSessions.findFirst({
+          where: eq(waSessions.sessionId, sessionName),
+          columns: { id: true },
+        });
+        if (waSession) {
+          const phoneNumber = body.payload?.me?.id?.split("@")[0] || body.payload?.phone || "";
+          const updateData: Record<string, string> = { status: "connected" };
+          if (phoneNumber) updateData.waNumber = phoneNumber;
+          await db
+            .update(waSessions)
+            .set(updateData)
+            .where(eq(waSessions.id, waSession.id));
+          console.log(`[WA Session] ${sessionName} → connected (${phoneNumber})`);
+        }
+      }
+      return NextResponse.json({ status: "session_updated" });
+    }
+
+    if (body.event === "session.stopped" || body.event === "session.logout") {
+      const sessionName = body.session;
+      if (sessionName) {
+        const waSession = await db.query.waSessions.findFirst({
+          where: eq(waSessions.sessionId, sessionName),
+          columns: { id: true },
+        });
+        if (waSession) {
+          await db
+            .update(waSessions)
+            .set({ status: "disconnected" })
+            .where(eq(waSessions.id, waSession.id));
+          console.log(`[WA Session] ${sessionName} → disconnected`);
+        }
+      }
+      return NextResponse.json({ status: "session_updated" });
+    }
+
     let messageData = {
       from: "",
       body: "",

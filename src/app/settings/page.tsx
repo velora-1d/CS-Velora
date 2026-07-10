@@ -2105,7 +2105,15 @@ export default function SettingsPage() {
             </div>
             <button
               type="button"
-              onClick={() => { setWaQrModal(null); fetchWaSessions(); }}
+              onClick={async () => {
+                if (waQrModal?.sessionId) {
+                  try {
+                    await fetch(`/api/whatsapp/sessions/${waQrModal.sessionId}/sync`, { method: "POST" });
+                  } catch {}
+                }
+                setWaQrModal(null);
+                await fetchWaSessions();
+              }}
               className="w-full rounded-xl bg-[#3B82F6] hover:bg-[#2563EB] py-2.5 text-sm font-bold text-white transition-all shadow-[0_0_15px_rgba(59,130,246,0.2)]"
             >
               Sudah Scan, Refresh Status
