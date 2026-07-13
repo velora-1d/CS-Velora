@@ -13,27 +13,30 @@ export function getEnvFallback(key: string): string {
     return process.env[key]!;
   }
 
-  try {
-    const filePath = path.join(process.cwd(), ".env.local");
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, "utf-8");
-      const lines = content.split("\n");
-      for (const line of lines) {
-        const trimmed = line.trim();
-        // Lewati komentar atau baris kosong
-        if (trimmed.startsWith("#") || !trimmed.includes("=")) {
-          continue;
-        }
-        
-        const [k, ...v] = trimmed.split("=");
-        if (k.trim() === key) {
-          // Bersihkan tanda kutip ganda atau tunggal di ujung nilai
-          return v.join("=").trim().replace(/^['"]|['"]$/g, "");
+  const files = [".env.local", ".env"];
+  for (const filename of files) {
+    try {
+      const filePath = path.join(process.cwd(), filename);
+      if (fs.existsSync(filePath)) {
+        const content = fs.readFileSync(filePath, "utf-8");
+        const lines = content.split("\n");
+        for (const line of lines) {
+          const trimmed = line.trim();
+          // Lewati komentar atau baris kosong
+          if (trimmed.startsWith("#") || !trimmed.includes("=")) {
+            continue;
+          }
+          
+          const [k, ...v] = trimmed.split("=");
+          if (k.trim() === key) {
+            // Bersihkan tanda kutip ganda atau tunggal di ujung nilai
+            return v.join("=").trim().replace(/^['"]|['"]$/g, "");
+          }
         }
       }
+    } catch (err) {
+      console.error(`[env.ts] Gagal membaca manual ${filename} untuk key "${key}":`, err);
     }
-  } catch (err) {
-    console.error(`[env.ts] Gagal membaca manual .env.local untuk key "${key}":`, err);
   }
 
   return "";

@@ -10,6 +10,7 @@ import {
   ToggleLeft,
   ToggleRight,
   Loader2,
+  X,
 } from "lucide-react";
 
 import { ConfirmModal } from "@/components/ui/confirm-modal";
@@ -292,7 +293,7 @@ export default function FaqsPage() {
                   </h2>
                 </div>
                 <button onClick={handleCloseDrawer} className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[rgba(138,180,248,0.12)] text-[#93A8C7] hover:bg-[rgba(255,255,255,0.05)]">
-                  ✕
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>

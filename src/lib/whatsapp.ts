@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
-import { tenants, waSessions } from "@/db/schema";
+import { tenants, waSessions, ownerSettings } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { getEnvFallback } from "@/lib/env";
 
 export async function sendWhatsAppMessage(tenantId: string, to: string, message: string) {
   const tenant = await db.query.tenants.findFirst({
@@ -10,7 +11,15 @@ export async function sendWhatsAppMessage(tenantId: string, to: string, message:
   if (!tenant) throw new Error("Tenant not found");
 
   if (tenant.waProvider === "fonnte") {
-    return sendFonnteMessage(tenant.waApiKey || process.env.FONNTE_API_KEY || process.env.FONNTE_TOKEN || "", to, message);
+    const ownerFonnteSetting = await db.query.ownerSettings.findFirst({
+      where: eq(ownerSettings.key, "owner_fonnte_token"),
+    });
+    const fonnteKey = tenant.waApiKey 
+      || ownerFonnteSetting?.value 
+      || getEnvFallback("FONNTE_API_KEY") 
+      || getEnvFallback("FONNTE_TOKEN") 
+      || "";
+    return sendFonnteMessage(fonnteKey, to, message);
   } else if (tenant.waProvider === "waha") {
     // Lookup active WAHA session from waSessions table (multi-device support)
     const activeSession = await db.query.waSessions.findFirst({
@@ -35,7 +44,15 @@ export async function setWhatsAppPresence(tenantId: string, to: string, presence
   if (!tenant) return;
 
   if (tenant.waProvider === "fonnte" && presence === "typing") {
-    return setFonntePresence(tenant.waApiKey || process.env.FONNTE_API_KEY || process.env.FONNTE_TOKEN || "", to);
+    const ownerFonnteSetting = await db.query.ownerSettings.findFirst({
+      where: eq(ownerSettings.key, "owner_fonnte_token"),
+    });
+    const fonnteKey = tenant.waApiKey 
+      || ownerFonnteSetting?.value 
+      || getEnvFallback("FONNTE_API_KEY") 
+      || getEnvFallback("FONNTE_TOKEN") 
+      || "";
+    return setFonntePresence(fonnteKey, to);
   } else if (tenant.waProvider === "waha") {
     // Lookup active WAHA session from waSessions table (multi-device support)
     const activeSession = await db.query.waSessions.findFirst({
@@ -71,8 +88,8 @@ async function sendFonnteMessage(apiKey: string, to: string, message: string) {
 }
 
 async function sendWahaMessage(session: string, to: string, message: string) {
-  const baseUrl = process.env.WAHA_URL || process.env.WAHA_API_URL || "http://localhost:3000";
-  const wahaSecret = process.env.WAHA_SECRET || process.env.WAHA_API_KEY;
+  const baseUrl = getEnvFallback("WAHA_URL") || getEnvFallback("WAHA_API_URL") || "http://localhost:3000";
+  const wahaSecret = getEnvFallback("WAHA_SECRET") || getEnvFallback("WAHA_API_KEY");
 
   const res = await fetch(`${baseUrl}/api/sendText`, {
     method: "POST",
@@ -110,8 +127,8 @@ async function setFonntePresence(apiKey: string, to: string) {
 
 async function setWahaPresence(session: string, to: string, presence: "typing" | "paused") {
   try {
-    const baseUrl = process.env.WAHA_URL || process.env.WAHA_API_URL || "http://localhost:3000";
-    const wahaSecret = process.env.WAHA_SECRET || process.env.WAHA_API_KEY;
+    const baseUrl = getEnvFallback("WAHA_URL") || getEnvFallback("WAHA_API_URL") || "http://localhost:3000";
+    const wahaSecret = getEnvFallback("WAHA_SECRET") || getEnvFallback("WAHA_API_KEY");
 
     await fetch(`${baseUrl}/api/presence`, {
       method: "POST",

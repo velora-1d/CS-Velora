@@ -11,13 +11,14 @@ export async function GET() {
   }
 
   try {
-    const keys = ["system_login_logo", "system_favicon", "system_sidebar_logo"];
+    const keys = ["system_login_logo", "system_favicon", "system_sidebar_logo", "owner_fonnte_token"];
     const settingsList = await db.query.ownerSettings.findMany();
     
     const result: Record<string, string> = {
       system_login_logo: "/logo-velora.png",
       system_favicon: "/logo-velora.png",
       system_sidebar_logo: "/logo-velora.png",
+      owner_fonnte_token: "",
     };
 
     settingsList.forEach((s) => {
@@ -41,12 +42,13 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { system_login_logo, system_favicon, system_sidebar_logo } = body;
+    const { system_login_logo, system_favicon, system_sidebar_logo, owner_fonnte_token } = body;
 
     const payload = [
       { key: "system_login_logo", value: system_login_logo || "/logo-velora.png" },
       { key: "system_favicon", value: system_favicon || "/logo-velora.png" },
       { key: "system_sidebar_logo", value: system_sidebar_logo || "/logo-velora.png" },
+      { key: "owner_fonnte_token", value: owner_fonnte_token || "" },
     ];
 
     for (const item of payload) {

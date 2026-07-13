@@ -151,31 +151,35 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: "rate_limited" }, { status: 429 });
     }
 
-    // 3. Find Tenant — cari dari waSessions (Multi-WA) atau fallback ke kolom lama
-    let tenant = await db.query.tenants.findFirst({
+    // 3. Find Tenant & WA Session — cari dari waSessions (Multi-WA) atau fallback ke kolom lama
+    let tenant = null;
+    let businessProfileId: string | undefined = undefined;
+
+    // Cari via tabel waSessions (Multi-WA) terlebih dahulu karena membawa businessProfileId
+    const waSession = await db.query.waSessions.findFirst({
       where: or(
-        eq(tenants.waSessionId, messageData.identifier),
-        eq(tenants.waNumber, messageData.identifier)
+        eq(waSessions.sessionId, messageData.identifier),
+        eq(waSessions.waNumber, messageData.identifier),
+        // Fallback: cleaning number
+        eq(waSessions.waNumber, messageData.from)
       ),
     });
 
-    if (!tenant) {
-      // Cari via tabel waSessions (Multi-WA)
-      const waSession = await db.query.waSessions.findFirst({
-        where: or(
-          eq(waSessions.sessionId, messageData.identifier),
-          eq(waSessions.waNumber, messageData.identifier),
-          // Fallback: cleaning number
-          eq(waSessions.waNumber, messageData.from)
-        ),
-        columns: { tenantId: true },
+    if (waSession) {
+      tenant = await db.query.tenants.findFirst({
+        where: eq(tenants.id, waSession.tenantId),
       });
+      businessProfileId = waSession.businessProfileId || undefined;
+    }
 
-      if (waSession) {
-        tenant = await db.query.tenants.findFirst({
-          where: eq(tenants.id, waSession.tenantId),
-        });
-      }
+    if (!tenant) {
+      // Fallback ke kolom lama di tabel tenants
+      tenant = await db.query.tenants.findFirst({
+        where: or(
+          eq(tenants.waSessionId, messageData.identifier),
+          eq(tenants.waNumber, messageData.identifier)
+        ),
+      });
     }
 
     // fallback mapping untuk Fonnte owner / khusus
@@ -333,10 +337,10 @@ export async function POST(req: Request) {
     }
 
     // 6. Check Bot Availability & AI Settings
-    const { available, settings } = await checkBotAvailability(tenant.id);
+    const { available, settings, businessProfile } = await checkBotAvailability(tenant.id, businessProfileId);
     
     if (!available) {
-      const offlineMsg = settings?.pesanOffline || "Maaf, kami sedang offline.";
+      const offlineMsg = businessProfile?.pesanOffline || settings?.pesanOffline || "Maaf, kami sedang offline.";
       await sendWhatsAppAndLog(tenant.id, messageData.from, offlineMsg, false);
       return NextResponse.json({ status: "offline_replied" });
     }
@@ -380,7 +384,7 @@ export async function POST(req: Request) {
 
       // Jalankan delay dan AI completion secara paralel
       const [aiReply] = await Promise.all([
-        getAiCompletion(tenant.id, messageData.body, history, promptOverrides, messageData.from, messageData.name, imageUrlForAi),
+        getAiCompletion(tenant.id, messageData.body, history, promptOverrides, messageData.from, messageData.name, imageUrlForAi, businessProfileId),
         new Promise(resolve => setTimeout(resolve, delay)),
       ]);
 

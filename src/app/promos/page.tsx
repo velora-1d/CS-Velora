@@ -11,6 +11,7 @@ import {
   ToggleRight,
   Loader2,
   Calendar,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
@@ -426,7 +427,7 @@ export default function PromosPage() {
                   <p className="text-xs uppercase tracking-[0.18em] text-[#56D6FF]">Promo editor</p>
                   <h2 className="mt-2 font-display text-3xl text-[#F1F5F9]">{editingPromo ? "Edit Promo" : "Tambah Promo"}</h2>
                 </div>
-                <button onClick={handleCloseDrawer} className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[rgba(138,180,248,0.12)] text-[#93A8C7] hover:bg-[rgba(255,255,255,0.05)]">✕</button>
+                <button onClick={handleCloseDrawer} className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[rgba(138,180,248,0.12)] text-[#93A8C7] hover:bg-[rgba(255,255,255,0.05)]"><X className="w-4 h-4" /></button>
               </div>
             </div>
             <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">

@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { tenants } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getEnvFallback } from "@/lib/env";
+import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
 export async function POST(req: Request) {
   try {
@@ -15,6 +16,8 @@ export async function POST(req: Request) {
 
     const tenantId = session.user.tenantId;
     const body = await req.json();
+    const recipientNumber = body.recipientNumber;
+
     
     // Ambil info tenant dari DB
     const tenant = await db.query.tenants.findFirst({
@@ -59,10 +62,21 @@ export async function POST(req: Request) {
 
         if (res.ok) {
           const text = await res.text();
+          let messageSent = false;
+          let sendDetails = "";
+          if (recipientNumber) {
+            try {
+              await sendWhatsAppMessage(tenantId, recipientNumber, "Halo! Ini adalah pesan uji coba koneksi WhatsApp Bot dari sistem Velora. Koneksi sukses terhubung! 🎉");
+              messageSent = true;
+              sendDetails = `Pesan tes berhasil dikirim ke nomor ${recipientNumber}.`;
+            } catch (sendErr: any) {
+              sendDetails = `Koneksi gateway sukses, namun gagal mengirim pesan tes: ${sendErr.message || String(sendErr)}`;
+            }
+          }
           return NextResponse.json({
             success: true,
-            message: "Koneksi ke Server WAHA berhasil terhubung!",
-            details: `HTTP ${res.status} - Version: ${text.slice(0, 50)}`
+            message: messageSent ? "Koneksi ke Server WAHA berhasil terhubung & Pesan Tes Terkirim!" : "Koneksi ke Server WAHA berhasil terhubung!",
+            details: `HTTP ${res.status} - Version: ${text.slice(0, 50)}.${sendDetails ? " " + sendDetails : ""}`
           });
         } else {
           const errBody = await res.text();
@@ -117,10 +131,21 @@ export async function POST(req: Request) {
         const data = await res.json();
         
         if (res.ok && data.status === true) {
+          let messageSent = false;
+          let sendDetails = "";
+          if (recipientNumber) {
+            try {
+              await sendWhatsAppMessage(tenantId, recipientNumber, "Halo! Ini adalah pesan uji coba koneksi WhatsApp Bot dari sistem Velora. Koneksi sukses terhubung! 🎉");
+              messageSent = true;
+              sendDetails = `Pesan tes berhasil dikirim ke nomor ${recipientNumber}.`;
+            } catch (sendErr: any) {
+              sendDetails = `Koneksi gateway sukses, namun gagal mengirim pesan tes: ${sendErr.message || String(sendErr)}`;
+            }
+          }
           return NextResponse.json({
             success: true,
-            message: "Koneksi ke API Fonnte sukses terhubung!",
-            details: `Device: ${data.device || "N/A"} - Status: ${data.device_status || "N/A"}`
+            message: messageSent ? "Koneksi ke API Fonnte sukses terhubung & Pesan Tes Terkirim!" : "Koneksi ke API Fonnte sukses terhubung!",
+            details: `Device: ${data.device || "N/A"} - Status: ${data.device_status || "N/A"}.${sendDetails ? " " + sendDetails : ""}`
           });
         } else {
           return NextResponse.json({

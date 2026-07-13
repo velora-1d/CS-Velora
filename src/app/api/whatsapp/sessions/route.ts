@@ -57,8 +57,13 @@ export async function POST(req: Request) {
     );
   }
 
-  // Generate session ID unik
-  const sessionId = `cs-velora-${tenantId.slice(0, 8)}-${Date.now()}`;
+  if (!label || !label.trim()) {
+    return NextResponse.json({ error: "Label / Nama Sesi wajib diisi" }, { status: 400 });
+  }
+
+  // Generate session ID unik menggunakan slugify label agar mudah dilacak di WAHA
+  const cleanLabel = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const sessionId = `cs-velora-${cleanLabel || 'session'}-${Date.now()}`;
 
   // Panggil WAHA API untuk start session
   const wahaBaseUrl = process.env.WAHA_API_URL || "http://localhost:3000";

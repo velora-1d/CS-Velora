@@ -62,7 +62,7 @@ export async function PUT(req: Request) {
       baseUrl: body.baseUrl || null,
     };
 
-    if (body.apiKey && body.apiKey !== "••••••••••••") {
+    if (body.apiKey !== undefined && body.apiKey !== "••••••••••••") {
       updateData.apiKey = body.apiKey;
     }
 
@@ -79,9 +79,7 @@ export async function PUT(req: Request) {
             provider: body.provider || "openai",
             baseUrl: body.baseUrl || null,
         };
-        if (body.apiKey && body.apiKey !== "••••••••••••") {
-            insertData.apiKey = body.apiKey;
-        }
+        insertData.apiKey = (body.apiKey !== undefined && body.apiKey !== "••••••••••••") ? body.apiKey : "";
         const newSettings = await db.insert(aiSettings).values(insertData).returning();
         
         const responseSettings = { ...newSettings[0] };

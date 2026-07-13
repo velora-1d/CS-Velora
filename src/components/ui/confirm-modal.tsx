@@ -27,7 +27,7 @@ export function ConfirmModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[#0B1120] border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-2xl w-full max-w-md p-6 text-[#F1F5F9] animate-in zoom-in-95 duration-200">
+      <div className="bg-[#0B1120] border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-2xl w-full max-w-lg p-6 text-[#F1F5F9] animate-in zoom-in-95 duration-200">
         <div className="flex items-start gap-4">
           <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
             isDanger ? "bg-red-500/10 text-red-500" : "bg-blue-500/10 text-blue-400"

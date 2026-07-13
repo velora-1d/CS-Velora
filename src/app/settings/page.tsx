@@ -40,6 +40,8 @@ import {
   Upload,
   ExternalLink,
   Activity,
+  Link2,
+  BookOpen,
 } from "lucide-react";
 
 import { ConfirmModal } from "@/components/ui/confirm-modal";
@@ -117,7 +119,21 @@ type WaSession = {
   waNumber: string;
   label: string;
   status: string;
+  businessProfileId?: string | null;
   createdAt: string;
+};
+
+type BusinessProfile = {
+  id: string;
+  tenantId: string;
+  tenantTypeId?: string | null;
+  name: string;
+  greeting: string;
+  pesanOffline: string;
+  aiEnabled: boolean;
+  systemPrompt: string;
+  model: string;
+  createdAt?: string;
 };
 
 // --- Defaults ---
@@ -208,6 +224,24 @@ export default function SettingsPage() {
   const [isSavingBot, setIsSavingBot] = useState(false);
   const [testingWaConn, setTestingWaConn] = useState(false);
   const [waSessions, setWaSessions] = useState<WaSession[]>([]);
+  
+  // States: Tab - Business Profiles
+  const [businessProfiles, setBusinessProfiles] = useState<BusinessProfile[]>([]);
+  const [loadingProfiles, setLoadingProfiles] = useState(true);
+  const [isSavingProfileItem, setIsSavingProfileItem] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [editingProfile, setEditingProfile] = useState<BusinessProfile | null>(null);
+  
+  const defaultProfileForm = {
+    name: "",
+    tenantTypeId: "",
+    greeting: "Halo! Selamat datang di layanan kami. Ada yang bisa kami bantu?",
+    pesanOffline: "Maaf, saat ini kami sedang offline. Pesan Anda akan dibalas setelah kami online kembali.",
+    aiEnabled: true,
+    systemPrompt: "Anda adalah asisten virtual yang ramah.",
+    model: "qwen-vl-plus",
+  };
+  const [profileForm, setProfileForm] = useState<Partial<BusinessProfile>>(defaultProfileForm);
   const [loadingWaSessions, setLoadingWaSessions] = useState(true);
   const [addingWaSession, setAddingWaSession] = useState(false);
   const [waSessionError, setWaSessionError] = useState<string | null>(null);
@@ -217,6 +251,7 @@ export default function SettingsPage() {
 
   // Logo uploading states
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingQris, setUploadingQris] = useState(false);
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -248,6 +283,40 @@ export default function SettingsPage() {
       toast.error("Terjadi kesalahan saat mengunggah");
     } finally {
       setUploadingLogo(false);
+    }
+  };
+
+  const handleQrisUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File terlalu besar (Maksimal 5MB)");
+      return;
+    }
+
+    try {
+      setUploadingQris(true);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "qris");
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok && data.url) {
+        setPaymentFormData((prev) => ({ ...prev, gambarQris: data.url }));
+        toast.success("Gambar QRIS berhasil diunggah!");
+      } else {
+        toast.error(data.error || "Gagal mengunggah gambar QRIS");
+      }
+    } catch {
+      toast.error("Terjadi kesalahan saat mengunggah QRIS");
+    } finally {
+      setUploadingQris(false);
     }
   };
 
@@ -323,13 +392,18 @@ export default function SettingsPage() {
   const [dataRetentionDays, setDataRetentionDays] = useState("90");
   const [webhookEnabled, setWebhookEnabled] = useState(true);
   const [isSavingSecurity, setIsSavingSecurity] = useState(false);
+  const [testingPakasir, setTestingPakasir] = useState(false);
+  const [testingS3, setTestingS3] = useState(false);
+  const [waTestRecipient, setWaTestRecipient] = useState("");
+  const [showWaTestModal, setShowWaTestModal] = useState(false);
+
 
   useEffect(() => {
     fetchAllData();
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get("tab");
-      if (tab && ["profile", "bot", "ai", "payment", "security"].includes(tab)) {
+      if (tab && ["profile", "businesses", "bot", "ai", "payment", "security"].includes(tab)) {
         setActiveTab(tab);
       }
     }
@@ -353,6 +427,7 @@ export default function SettingsPage() {
         fetchAccount(),
         fetchTenantTypes(),
         fetchWaSessions(),
+        fetchBusinessProfiles(),
       ]);
     } catch (error) {
       console.error("Error loading settings:", error);
@@ -371,6 +446,21 @@ export default function SettingsPage() {
     }
   };
 
+  const fetchBusinessProfiles = async () => {
+    try {
+      setLoadingProfiles(true);
+      const res = await fetch("/api/business-profiles");
+      if (res.ok) {
+        const data = await res.json();
+        setBusinessProfiles(data);
+      }
+    } catch (error) {
+      console.error("Error loading business profiles:", error);
+    } finally {
+      setLoadingProfiles(false);
+    }
+  };
+
   const fetchWaSessions = async () => {
     try {
       setLoadingWaSessions(true);
@@ -383,6 +473,81 @@ export default function SettingsPage() {
       setWaSessionError("Gagal memuat sesi WhatsApp.");
     } finally {
       setLoadingWaSessions(false);
+    }
+  };
+
+  const handleSaveBusinessProfile = async () => {
+    if (!profileForm.name?.trim()) {
+      toast.error("Nama bisnis wajib diisi.");
+      return;
+    }
+
+    try {
+      setIsSavingProfileItem(true);
+      const isEdit = !!editingProfile;
+      const url = isEdit ? `/api/business-profiles/${editingProfile.id}` : "/api/business-profiles";
+      const method = isEdit ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profileForm),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(isEdit ? "Profil bisnis diperbarui!" : "Profil bisnis baru dibuat!");
+        setShowProfileModal(false);
+        setEditingProfile(null);
+        setProfileForm(defaultProfileForm);
+        fetchBusinessProfiles();
+      } else {
+        toast.error(data.error || "Gagal menyimpan profil bisnis.");
+      }
+    } catch (error) {
+      console.error("Error saving business profile:", error);
+      toast.error("Gagal menyimpan profil bisnis.");
+    } finally {
+      setIsSavingProfileItem(false);
+    }
+  };
+
+  const handleDeleteBusinessProfile = async (id: string) => {
+    try {
+      const res = await fetch(`/api/business-profiles/${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        toast.success("Profil bisnis berhasil dihapus.");
+        fetchBusinessProfiles();
+        fetchWaSessions(); // Reload sessions to clear deleted profile links
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Gagal menghapus profil bisnis.");
+      }
+    } catch (error) {
+      console.error("Error deleting business profile:", error);
+      toast.error("Gagal menghapus profil bisnis.");
+    }
+  };
+
+  const handleLinkWaSession = async (sessionId: string, businessProfileId: string) => {
+    try {
+      const res = await fetch(`/api/whatsapp/sessions/${sessionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessProfileId: businessProfileId || null }),
+      });
+      if (res.ok) {
+        toast.success("Sesi WhatsApp berhasil ditautkan ke profil bisnis!");
+        fetchWaSessions();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Gagal menautkan sesi WhatsApp.");
+      }
+    } catch (error) {
+      console.error("Error linking WA session:", error);
+      toast.error("Gagal menautkan sesi WhatsApp.");
     }
   };
 
@@ -413,6 +578,10 @@ export default function SettingsPage() {
   };
 
   const handleAddWaSession = async () => {
+    if (!waLabelInput.trim()) {
+      setWaSessionError("Nama Sesi / Label wajib diisi.");
+      return;
+    }
     try {
       setAddingWaSession(true);
       setWaSessionError(null);
@@ -678,7 +847,83 @@ export default function SettingsPage() {
     }
   };
 
-  // Payments handlers
+  const handleTestPakasir = async () => {
+    setTestingPakasir(true);
+    const toastId = toast.loading("Menguji koneksi Pakasir...");
+    try {
+      const res = await fetch("/api/pakasir/test-connection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectSlug: profile.pakasirProjectSlug,
+          apiKey: profile.pakasirApiKey,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(data.message || "Koneksi Pakasir sukses!", { id: toastId });
+      } else {
+        toast.error(data.error || "Koneksi Pakasir gagal.", { id: toastId });
+      }
+    } catch {
+      toast.error("Terjadi kesalahan jaringan.", { id: toastId });
+    } finally {
+      setTestingPakasir(false);
+    }
+  };
+
+  const handleTestS3 = async () => {
+    setTestingS3(true);
+    const toastId = toast.loading("Menguji koneksi S3 Storage...");
+    try {
+      const res = await fetch("/api/storage/test-connection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(data.message || "Koneksi S3 Storage sukses!", { id: toastId });
+      } else {
+        toast.error(data.error || "Koneksi S3 Storage gagal.", { id: toastId });
+      }
+    } catch {
+      toast.error("Terjadi kesalahan jaringan.", { id: toastId });
+    } finally {
+      setTestingS3(false);
+    }
+  };
+
+  const handleTestWaWithMessage = async () => {
+    if (!waTestRecipient.trim()) {
+      toast.error("Nomor WhatsApp penerima wajib diisi.");
+      return;
+    }
+    setTestingWaConn(true);
+    const toastId = toast.loading(`Menguji koneksi WhatsApp & mengirim pesan ke ${waTestRecipient}...`);
+    try {
+      const res = await fetch("/api/whatsapp/test-connection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: (session?.user as any)?.role === "owner" ? (profile.waProvider || "waha") : "waha",
+          recipientNumber: waTestRecipient,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(data.message, { id: toastId, description: data.details, duration: 5000 });
+        setShowWaTestModal(false);
+        setWaTestRecipient("");
+      } else {
+        toast.error(data.message || data.error || "Uji koneksi gagal.", { id: toastId });
+      }
+    } catch {
+      toast.error("Terjadi kesalahan jaringan.", { id: toastId });
+    } finally {
+      setTestingWaConn(false);
+    }
+  };
+
   const handleOpenPaymentDrawer = (payment?: PaymentItem) => {
     if (payment) {
       setEditingPayment(payment);
@@ -873,6 +1118,7 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: "profile", label: "Profil Toko", icon: Store },
+    { id: "businesses", label: "Profil Bisnis & AI", icon: Building },
     { id: "bot", label: "WhatsApp & Otomasi", icon: Clock },
     { id: "ai", label: "Kredensial AI & Asisten", icon: Bot },
     { id: "payment", label: "Metode Pembayaran", icon: CreditCard },
@@ -921,39 +1167,57 @@ export default function SettingsPage() {
                 <h2 className="font-display text-xl font-bold text-white border-b border-[rgba(255,255,255,0.06)] pb-3">Profil Bisnis</h2>
                 
                 {/* Logo Sidebar Uploader */}
-                <div className="flex flex-col sm:flex-row items-center gap-4 bg-[rgba(255,255,255,0.02)] p-4 rounded-2xl border border-white/5 mb-2">
-                  <div className="w-16 h-16 rounded-xl bg-slate-950/70 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img 
-                      src={profile.logoUrl || "/logo-velora.png"} 
-                      alt="Logo Sidebar Toko" 
-                      className="max-w-full max-h-full object-contain p-2" 
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "/logo-velora.png";
-                      }}
-                    />
-                  </div>
-                  <div className="flex-1 w-full text-center sm:text-left">
-                    <h3 className="text-sm font-semibold text-white">Logo Sidebar Toko</h3>
-                    <p className="text-[10px] text-[#93A8C7] mt-1 mb-3">Unggah logo kustom Anda untuk ditampilkan di bagian kiri panel navigasi.</p>
-                    <label className="inline-flex cursor-pointer">
-                      <div className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.08)] rounded-xl text-xs font-semibold text-[#F1F5F9] transition-all">
-                        {uploadingLogo ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-[#56D6FF]" />
-                        ) : (
-                          <Upload className="w-3.5 h-3.5 text-[#56D6FF]" />
-                        )}
-                        <span>{uploadingLogo ? "Mengunggah..." : "Unggah Logo"}</span>
+                <div className="bg-[rgba(255,255,255,0.02)] p-4 rounded-2xl border border-white/5 mb-2">
+                  <h3 className="text-sm font-semibold text-white mb-1">Logo Sidebar Toko</h3>
+                  <p className="text-[10px] text-[#93A8C7] mb-3">Unggah logo kustom Anda untuk ditampilkan di bagian kiri panel navigasi.</p>
+                  {profile.logoUrl ? (
+                    <div className="space-y-3">
+                      {/* Preview */}
+                      <div className="relative group w-full h-[160px] rounded-xl overflow-hidden border border-[rgba(255,255,255,0.08)] bg-white/5 flex items-center justify-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={profile.logoUrl}
+                          alt="Pratinjau Logo Toko"
+                          className="max-w-full max-h-full object-contain p-3"
+                          onError={(e) => { (e.target as HTMLImageElement).src = "/logo-velora.png"; }}
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center">
+                          <button
+                            type="button"
+                            onClick={() => setProfile((prev) => ({ ...prev, logoUrl: "" }))}
+                            className="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded-lg text-white text-xs font-bold transition-all"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Hapus Logo
+                          </button>
+                        </div>
                       </div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleLogoUpload}
-                        className="hidden"
-                        disabled={uploadingLogo}
-                      />
+                      {/* Replace button */}
+                      <label className="flex items-center justify-center gap-2 w-full py-2 border border-dashed border-[rgba(255,255,255,0.1)] hover:border-[#56D6FF]/40 rounded-xl text-xs text-[#69809F] hover:text-[#56D6FF] cursor-pointer transition-all">
+                        <Upload className="h-3.5 w-3.5" />
+                        Ganti Logo
+                        <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} />
+                      </label>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-[rgba(255,255,255,0.12)] hover:border-[#56D6FF]/50 bg-white/2 hover:bg-[#56D6FF]/5 rounded-xl p-8 cursor-pointer transition-all group">
+                      <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} />
+                      {uploadingLogo ? (
+                        <div className="flex flex-col items-center gap-2 text-[#93A8C7]">
+                          <Loader2 className="h-8 w-8 animate-spin text-[#56D6FF]" />
+                          <span className="text-xs font-medium">Mengunggah...</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 text-[#93A8C7] group-hover:text-[#F1F5F9]">
+                          <div className="w-12 h-12 rounded-xl bg-[#56D6FF]/10 flex items-center justify-center group-hover:bg-[#56D6FF]/20 transition-all">
+                            <Upload className="h-6 w-6 text-[#56D6FF]" />
+                          </div>
+                          <span className="text-xs font-semibold">Klik untuk unggah logo</span>
+                          <span className="text-[10px] text-[#69809F]">PNG, JPG, SVG — Maks 2MB</span>
+                        </div>
+                      )}
                     </label>
-                  </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1095,93 +1359,8 @@ export default function SettingsPage() {
           {activeTab === "bot" && (
             <div className="space-y-6 animate-in fade-in duration-200">
               
-              {/* WhatsApp Provider Switcher (HANYA UNTUK OWNER) */}
-              {(session?.user as any)?.role === "owner" && (
-                <div className="glass-card p-6 space-y-4">
-                  <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.06)] pb-3">
-                    <div className="flex items-center gap-3">
-                      <Wifi className="h-6 w-6 text-[#56D6FF]" />
-                      <div>
-                        <h2 className="font-display text-lg font-bold text-white">Gateway Provider WhatsApp (Owner Only)</h2>
-                        <p className="text-xs text-[#93A8C7]">Pilih provider pengiriman pesan WhatsApp untuk sistem.</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleTestWaConnection(profile.waProvider as any)}
-                        disabled={testingWaConn}
-                        className="px-3.5 py-2 bg-[#56D6FF]/10 hover:bg-[#56D6FF]/20 border border-[#56D6FF]/20 text-[#56D6FF] rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
-                      >
-                        <Activity className="h-3.5 w-3.5" />
-                        Test Koneksi {profile.waProvider?.toUpperCase()}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            const res = await fetch("/api/profile", {
-                              method: "PUT",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                ...profile,
-                                waProvider: profile.waProvider,
-                              }),
-                            });
-                            if (res.ok) {
-                              toast.success("Gateway provider berhasil diperbarui");
-                            } else {
-                              toast.error("Gagal memperbarui provider");
-                            }
-                          } catch {
-                            toast.error("Terjadi kesalahan");
-                          }
-                        }}
-                        className="px-4 py-2 bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
-                      >
-                        <Save className="w-3.5 h-3.5" />
-                        Simpan Provider
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <button
-                      type="button"
-                      onClick={() => setProfile((c) => ({ ...c, waProvider: "waha" }))}
-                      className={`p-4 rounded-xl border text-left transition-all ${
-                        profile.waProvider === "waha"
-                          ? "border-[#56D6FF]/40 bg-[#56D6FF]/5"
-                          : "border-white/5 bg-white/3 hover:border-white/10"
-                      }`}
-                    >
-                      <h4 className="font-bold text-white text-sm">WAHA (Scan QR)</h4>
-                      <p className="text-[11px] text-[#93A8C7] mt-1">Gunakan gateway gratis bawaan via scan QR Code</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setProfile((c) => ({ ...c, waProvider: "fonnte" }))}
-                      className={`p-4 rounded-xl border text-left transition-all ${
-                        profile.waProvider === "fonnte"
-                          ? "border-[#56D6FF]/40 bg-[#56D6FF]/5"
-                          : "border-white/5 bg-white/3 hover:border-white/10"
-                      }`}
-                    >
-                      <h4 className="font-bold text-white text-sm">Fonnte Gateway</h4>
-                      <p className="text-[11px] text-[#93A8C7] mt-1">Gunakan gateway berbayar Fonnte</p>
-                    </button>
-                  </div>
-
-                  {profile.waProvider === "fonnte" && (
-                    <div className="p-4 rounded-xl border border-yellow-500/20 bg-yellow-500/5 text-xs text-[#FFBF69] leading-relaxed">
-                      💡 Sistem akan menggunakan token Fonnte yang dikonfigurasi melalui server environment variable (<code>FONNTE_API_KEY</code>). Anda tidak perlu menginput API Key secara manual.
-                    </div>
-                  )}
-                </div>
-              )}
-              
               {/* Sesi Akun WhatsApp (Multi-Device Management) */}
-              {profile.waProvider === "waha" && (
+              {(profile.waProvider === "waha" || (session?.user as any)?.role !== "owner") && (
                 <div className="glass-card p-6 space-y-5">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-[rgba(255,255,255,0.06)] pb-4">
                     <div className="flex items-center gap-3">
@@ -1194,7 +1373,10 @@ export default function SettingsPage() {
                     <div className="flex gap-2 shrink-0">
                       <button
                         type="button"
-                        onClick={() => handleTestWaConnection("waha")}
+                        onClick={() => {
+                          setShowWaTestModal(true);
+                          setWaTestRecipient(profile.waNumber || "");
+                        }}
                         disabled={testingWaConn}
                         className="px-3.5 py-2 bg-[#56D6FF]/10 hover:bg-[#56D6FF]/20 border border-[#56D6FF]/20 text-[#56D6FF] rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
                       >
@@ -1276,6 +1458,24 @@ export default function SettingsPage() {
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] uppercase font-bold tracking-wider text-[#69809F] block">
+                              Profil Bisnis Terhubung
+                            </label>
+                            <select
+                              value={s.businessProfileId || ""}
+                              onChange={(e) => handleLinkWaSession(s.id, e.target.value)}
+                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0A0F1E] px-3 py-2 text-xs text-[#F1F5F9] focus:border-[#3B82F6] focus:outline-none"
+                            >
+                              <option value="" className="bg-[#0B1120] text-[#69809F]">-- Hubungkan ke Bisnis --</option>
+                              {businessProfiles.map((p) => (
+                                <option key={p.id} value={p.id} className="bg-[#0B1120] text-white">
+                                  {p.name}
+                                </option>
+                              ))}
+                            </select>
                           </div>
 
                           <div className="flex items-center justify-between pt-2 border-t border-[rgba(255,255,255,0.04)]">
@@ -1431,6 +1631,288 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {/* TAB: PROFIL BISNIS & AI */}
+          {activeTab === "businesses" && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <div className="glass-card p-6 space-y-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-[rgba(255,255,255,0.06)] pb-4">
+                  <div className="flex items-center gap-3">
+                    <Building className="h-6 w-6 text-[#3B82F6]" />
+                    <div>
+                      <h2 className="font-display text-xl font-bold text-white">Profil Bisnis / Brand</h2>
+                      <p className="text-xs text-[#93A8C7]">Kelola berbagai profil bisnis, brand, atau asisten AI yang berbeda dalam toko Anda.</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingProfile(null);
+                      setProfileForm(defaultProfileForm);
+                      setShowProfileModal(true);
+                    }}
+                    className="px-4 py-2 bg-[#3B82F6] hover:bg-[#2563EB] rounded-xl text-xs font-bold text-white flex items-center gap-1.5 transition-all shrink-0 self-start sm:self-auto"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Tambah Profil Bisnis
+                  </button>
+                </div>
+
+                {loadingProfiles ? (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="rounded-2xl border border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.02)] h-48 animate-pulse" />
+                    ))}
+                  </div>
+                ) : businessProfiles.length === 0 ? (
+                  <div className="rounded-2xl border border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.02)] flex flex-col items-center justify-center gap-3 py-12 text-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#3B82F6]/10 text-[#3B82F6]">
+                      <Building className="h-6 w-6" />
+                    </div>
+                    <p className="text-white text-sm font-semibold">Belum ada Profil Bisnis.</p>
+                    <p className="text-xs text-[#93A8C7]">Klik &ldquo;Tambah Profil Bisnis&rdquo; untuk membuat asisten AI brand pertama Anda.</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-6 md:grid-cols-2">
+                    {businessProfiles.map((p) => {
+                      const linkedWas = waSessions.filter((s) => s.businessProfileId === p.id);
+                      return (
+                        <div key={p.id} className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-5 space-y-4 hover:border-[#3B82F6]/30 transition-all flex flex-col justify-between">
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <h3 className="font-semibold text-white text-base">{p.name}</h3>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className="text-[10px] text-[#94A3B8] font-mono">Model: {p.model}</span>
+                                  {p.tenantTypeId && (
+                                    <>
+                                      <span className="text-[#69809F] text-[10px]">•</span>
+                                      <span className="text-[10px] text-[#56D6FF] font-medium">
+                                        {tenantTypes.find(t => t.id === p.tenantTypeId)?.name || "Kategori"}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${p.aiEnabled ? "bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20" : "bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/20"}`}>
+                                  {p.aiEnabled ? "AI Aktif" : "AI Off"}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2 text-xs text-[#93A8C7]">
+                              <div>
+                                <span className="text-[10px] font-bold text-[#69809F] uppercase tracking-wider block mb-0.5">Pesan Penyambut (Greeting)</span>
+                                <p className="line-clamp-2 italic bg-black/20 p-2 rounded-lg text-[11px] text-[#F1F5F9]">&ldquo;{p.greeting}&rdquo;</p>
+                              </div>
+                              <div>
+                                <span className="text-[10px] font-bold text-[#69809F] uppercase tracking-wider block mb-0.5">System Prompt</span>
+                                <p className="line-clamp-3 bg-black/20 p-2 rounded-lg text-[11px] font-mono leading-normal">{p.systemPrompt}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-3 border-t border-[rgba(255,255,255,0.05)] mt-2">
+                            <span className="text-[11px] text-[#69809F] font-semibold flex items-center gap-1">
+                              <Link2 className="w-3 h-3" />
+                              Terhubung ke: <span className="text-white font-bold">{linkedWas.length}</span> nomor WhatsApp
+                            </span>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingProfile(p);
+                                  setProfileForm(p);
+                                  setShowProfileModal(true);
+                                }}
+                                className="p-2 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.08)] rounded-xl text-xs font-semibold text-white flex items-center gap-1 transition-all"
+                              >
+                                <Edit className="h-3.5 w-3.5 text-[#3B82F6]" />
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(`Apakah Anda yakin ingin menghapus profil bisnis "${p.name}"?`)) {
+                                    handleDeleteBusinessProfile(p.id);
+                                  }
+                                }}
+                                className="p-2 bg-[rgba(255,255,255,0.04)] hover:bg-[#EF4444]/10 border border-[rgba(255,255,255,0.08)] rounded-xl text-xs font-semibold text-[#EF4444] flex items-center gap-1 transition-all"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Hapus
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Modal Tambah/Edit Profil Bisnis */}
+          {showProfileModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
+              <div className="bg-[#0B1120] border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-2xl w-full max-w-lg my-8 p-6 text-[#F1F5F9] max-h-[90vh] overflow-y-auto flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between pb-3 border-b border-[rgba(255,255,255,0.05)]">
+                    <h2 className="text-lg font-semibold text-[#F1F5F9]">{editingProfile ? "Edit Profil Bisnis" : "Tambah Profil Bisnis"}</h2>
+                    <button type="button" onClick={() => setShowProfileModal(false)} className="p-2 text-[#94A3B8] hover:text-white bg-[#1E293B] hover:bg-[#334155] rounded-full transition-colors">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <div className="mt-5 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] uppercase font-bold tracking-wider text-[#69809F] block mb-2">Nama Profil / Brand (Wajib)</label>
+                        <input
+                          type="text"
+                          value={profileForm.name || ""}
+                          onChange={(e) => setProfileForm(c => ({ ...c, name: e.target.value }))}
+                          placeholder="Contoh: Toko Hijab, CS Billing"
+                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-4 py-2.5 text-sm text-[#F1F5F9] placeholder:text-[#4A6080] focus:border-[#3B82F6] focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] uppercase font-bold tracking-wider text-[#69809F] block mb-2">Jenis Bisnis (Kategori)</label>
+                        <select
+                          value={profileForm.tenantTypeId || ""}
+                          onChange={(e) => setProfileForm(c => ({ ...c, tenantTypeId: e.target.value || null }))}
+                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-4 py-2.5 text-sm text-[#F1F5F9] focus:border-[#3B82F6] focus:outline-none"
+                        >
+                          <option value="" className="bg-[#0B1120] text-[#69809F]">-- Pilih Jenis Bisnis --</option>
+                          {tenantTypes.map((t) => (
+                            <option key={t.id} value={t.id} className="bg-[#0B1120] text-white">
+                              {t.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] uppercase font-bold tracking-wider text-[#69809F] block mb-2">Model AI</label>
+                        {!apiKey ? (
+                          // Belum ada API Key → suruh konfigurasi dulu
+                          <div className="flex items-center gap-2 rounded-xl border border-[#FFBF69]/30 bg-[#FFBF69]/5 px-4 py-3">
+                            <AlertTriangle className="w-4 h-4 text-[#FFBF69] shrink-0" />
+                            <p className="text-xs text-[#FFBF69]">Isi <span className="font-bold">API Key</span> dan <span className="font-bold">Base URL</span> di tab <span className="font-bold">Bot AI</span> terlebih dahulu, lalu kembali ke sini untuk memilih model.</p>
+                          </div>
+                        ) : dynamicModels.length > 0 ? (
+                          // Ada model dari API → tampilkan dropdown dinamis
+                          <select
+                            value={profileForm.model || ""}
+                            onChange={(e) => setProfileForm(c => ({ ...c, model: e.target.value }))}
+                            className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-4 py-2.5 text-sm text-[#F1F5F9] focus:border-[#3B82F6] focus:outline-none"
+                          >
+                            <option value="" className="bg-[#0B1120]">-- Pilih Model --</option>
+                            {dynamicModels.map((m) => (
+                              <option key={m.id} value={m.id} className="bg-[#0B1120]">
+                                {m.id}{m.name && m.name !== m.id ? ` (${m.name})` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          // API Key ada tapi belum fetch model → tombol fetch + input manual
+                          <div className="space-y-2">
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={profileForm.model || ""}
+                                onChange={(e) => setProfileForm(c => ({ ...c, model: e.target.value }))}
+                                placeholder="Tulis nama model, misal: gpt-4o, claude-3-5-sonnet"
+                                className="flex-1 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-4 py-2.5 text-sm text-[#F1F5F9] focus:border-[#3B82F6] focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={fetchModels}
+                                disabled={loadingModels}
+                                className="px-3 py-2.5 bg-[#3B82F6]/10 hover:bg-[#3B82F6]/20 border border-[#3B82F6]/30 text-[#3B82F6] rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 disabled:opacity-50"
+                              >
+                                {loadingModels ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                                {loadingModels ? "Fetch..." : "Fetch Model"}
+                              </button>
+                            </div>
+                            <p className="text-[10px] text-[#64748B]">Atau klik <span className="text-[#3B82F6] font-semibold">Fetch Model</span> untuk ambil daftar model otomatis dari provider yang dikonfigurasi di tab Bot AI.</p>
+                          </div>
+                        )}
+                      </div>
+
+                    <div className="flex items-center justify-between p-3 bg-[rgba(255,255,255,0.02)] rounded-xl border border-[rgba(255,255,255,0.04)]">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-white">Status Asisten AI</span>
+                        <span className="text-[10px] text-[#93A8C7]">Aktifkan atau nonaktifkan respon otomatis AI untuk nomor yang menggunakan profil ini.</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setProfileForm(c => ({ ...c, aiEnabled: !c.aiEnabled }))}
+                        className={`flex items-center gap-2 transition-colors ${profileForm.aiEnabled ? "text-[#10B981]" : "text-[#94A3B8]"}`}
+                      >
+                        {profileForm.aiEnabled ? <ToggleRight className="w-8 h-8" /> : <ToggleLeft className="w-8 h-8" />}
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] uppercase font-bold tracking-wider text-[#69809F] block mb-2">Pesan Selamat Datang (Greeting Message)</label>
+                      <textarea
+                        value={profileForm.greeting || ""}
+                        onChange={(e) => setProfileForm(c => ({ ...c, greeting: e.target.value }))}
+                        rows={3}
+                        placeholder="Pesan yang otomatis dikirim saat ada pelanggan baru..."
+                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-4 py-2.5 text-sm text-[#F1F5F9] focus:border-[#3B82F6] focus:outline-none resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] uppercase font-bold tracking-wider text-[#69809F] block mb-2">Pesan Offline</label>
+                      <textarea
+                        value={profileForm.pesanOffline || ""}
+                        onChange={(e) => setProfileForm(c => ({ ...c, pesanOffline: e.target.value }))}
+                        rows={3}
+                        placeholder="Pesan yang dikirim saat di luar jam kerja..."
+                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-4 py-2.5 text-sm text-[#F1F5F9] focus:border-[#3B82F6] focus:outline-none resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] uppercase font-bold tracking-wider text-[#69809F] block mb-2">System Prompt (Instruksi Dasar AI)</label>
+                      <textarea
+                        value={profileForm.systemPrompt || ""}
+                        onChange={(e) => setProfileForm(c => ({ ...c, systemPrompt: e.target.value }))}
+                        rows={5}
+                        placeholder="Tentukan instruksi kepribadian AI, batasan jawaban, gaya bicara, dll..."
+                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-4 py-2.5 text-sm text-[#F1F5F9] focus:border-[#3B82F6] focus:outline-none resize-none font-mono text-xs leading-relaxed"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-5 border-t border-[rgba(255,255,255,0.05)] mt-5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowProfileModal(false)}
+                    className="flex-1 rounded-xl border border-[rgba(255,255,255,0.08)] py-2.5 text-sm font-semibold text-[#93A8C7] hover:bg-[rgba(255,255,255,0.04)] transition-all"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveBusinessProfile}
+                    disabled={isSavingProfileItem}
+                    className="flex-1 rounded-xl bg-[#3B82F6] hover:bg-[#2563EB] py-2.5 text-sm font-bold text-white transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  >
+                    {isSavingProfileItem ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    {isSavingProfileItem ? "Menyimpan..." : "Simpan Profil"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* TAB 3: KREDENSIAL AI & ASISTEN */}
           {activeTab === "ai" && (
             <div className="space-y-6 animate-in fade-in duration-200">
@@ -1544,7 +2026,7 @@ export default function SettingsPage() {
                             </>
                           ) : (
                             <>
-                              <span className="text-sm font-medium text-[#FFBF69]">⚠ Pilih Model dari Provider...</span>
+                              <span className="text-sm font-medium text-[#FFBF69] flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" /> Pilih Model dari Provider...</span>
                               <span className="text-[9px] text-[#69809F]">Simpan API Key dulu, lalu klik untuk memilih model</span>
                             </>
                           )}
@@ -1659,7 +2141,7 @@ export default function SettingsPage() {
                 <div className="bg-[rgba(74,222,128,0.02)] border border-[#4ADE80]/10 rounded-2xl p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-bold text-[#4ADE80] uppercase tracking-wider flex items-center gap-1.5">
-                      ✦ Panduan Integrasi & Pendaftaran Pakasir
+                      <BookOpen className="w-3.5 h-3.5" /> Panduan Integrasi &amp; Pendaftaran Pakasir
                     </h3>
                     <a
                       href="https://app.pakasir.com/"
@@ -1708,7 +2190,16 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-2">
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleTestPakasir}
+                    disabled={testingPakasir}
+                    className="px-5 py-2 bg-[#56D6FF]/10 hover:bg-[#56D6FF]/20 border border-[#56D6FF]/20 text-[#56D6FF] rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {testingPakasir ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Activity className="w-3.5 h-3.5" />}
+                    Tes Koneksi Pakasir
+                  </button>
                   <button
                     onClick={handleSaveProfile}
                     disabled={isSavingProfile}
@@ -1913,6 +2404,31 @@ export default function SettingsPage() {
                   </button>
                 </div>
               </div>
+
+              {/* S3 Storage Diagnostik */}
+              <div className="glass-card p-6 space-y-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-[rgba(255,255,255,0.06)] pb-3">
+                  <div className="flex items-center gap-3">
+                    <Upload className="h-6 w-6 text-[#56D6FF]" />
+                    <div>
+                      <h2 className="font-display text-xl font-bold text-white">Diagnostik S3 Storage</h2>
+                      <p className="text-xs text-[#93A8C7]">Uji koneksi penyimpanan berkas global sistem.</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleTestS3}
+                    disabled={testingS3}
+                    className="px-5 py-2.5 bg-[#56D6FF]/10 hover:bg-[#56D6FF]/20 border border-[#56D6FF]/20 text-[#56D6FF] rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50 shrink-0 self-start sm:self-center"
+                  >
+                    {testingS3 ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Activity className="w-3.5 h-3.5" />}
+                    Tes Koneksi S3 Storage
+                  </button>
+                </div>
+                <p className="text-xs text-[#93A8C7] leading-relaxed">
+                  Uji koneksi ke Object Storage S3 (RustFS/MinIO) menggunakan environment variables server (<code>S3_ENDPOINT</code>, <code>S3_BUCKET</code>, dll.) untuk memastikan pengunggahan file/logo toko berjalan dengan lancar.
+                </p>
+              </div>
             </div>
           )}
 
@@ -1922,7 +2438,7 @@ export default function SettingsPage() {
       {/* Model Picker Modal (Tab 3) */}
       {isModelModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#0B1120] border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh] overflow-hidden text-[#F1F5F9]">
+          <div className="bg-[#0B1120] border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh] overflow-hidden text-[#F1F5F9]">
             <div className="flex items-center justify-between p-5 border-b border-[rgba(255,255,255,0.05)] shrink-0">
               <div className="space-y-1">
                 <h3 className="text-lg font-bold text-[#F1F5F9]">Pilih Model AI</h3>
@@ -2033,8 +2549,56 @@ export default function SettingsPage() {
               )}
               {paymentFormData.tipe === "qris" && (
                 <div>
-                  <label className="mb-2 block text-sm text-[#93A8C7]">URL Gambar QRIS (Statis)</label>
-                  <input type="text" value={paymentFormData.gambarQris} onChange={(e) => setPaymentFormData((c) => ({ ...c, gambarQris: e.target.value }))} className="app-input" placeholder="https://example.com/qris.png" />
+                  <label className="mb-2 block text-sm text-[#93A8C7]">Gambar QRIS (Statis)</label>
+                  {paymentFormData.gambarQris ? (
+                    <div className="space-y-2">
+                      {/* Preview */}
+                      <div className="relative group w-full h-[180px] rounded-xl overflow-hidden border border-[rgba(255,255,255,0.08)] bg-white/5 flex items-center justify-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={paymentFormData.gambarQris}
+                          alt="Pratinjau QRIS"
+                          className="max-w-full max-h-full object-contain p-2"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center">
+                          <button
+                            type="button"
+                            onClick={() => setPaymentFormData((c) => ({ ...c, gambarQris: "" }))}
+                            className="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded-lg text-white text-xs font-bold transition-all"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Hapus QRIS
+                          </button>
+                        </div>
+                      </div>
+                      {/* Replace / URL edit buttons */}
+                      <div className="flex gap-2">
+                        <label className="flex-1 flex items-center justify-center gap-1.5 py-2 border border-dashed border-[rgba(255,255,255,0.1)] hover:border-[#56D6FF]/40 rounded-xl text-xs text-[#69809F] hover:text-[#56D6FF] cursor-pointer transition-all">
+                          {uploadingQris ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                          {uploadingQris ? "Mengunggah..." : "Ganti Gambar"}
+                          <input type="file" className="hidden" accept="image/*" onChange={handleQrisUpload} disabled={uploadingQris} />
+                        </label>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-[rgba(255,255,255,0.12)] hover:border-[#56D6FF]/50 bg-white/2 hover:bg-[#56D6FF]/5 rounded-xl p-6 cursor-pointer transition-all group">
+                      <input type="file" className="hidden" accept="image/*" onChange={handleQrisUpload} disabled={uploadingQris} />
+                      {uploadingQris ? (
+                        <div className="flex flex-col items-center gap-2 text-[#93A8C7]">
+                          <Loader2 className="h-8 w-8 animate-spin text-[#56D6FF]" />
+                          <span className="text-xs font-medium">Mengunggah QRIS...</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 text-[#93A8C7] group-hover:text-[#F1F5F9]">
+                          <div className="w-12 h-12 rounded-xl bg-[#56D6FF]/10 flex items-center justify-center group-hover:bg-[#56D6FF]/20 transition-all">
+                            <QrCode className="h-6 w-6 text-[#56D6FF]" />
+                          </div>
+                          <span className="text-xs font-semibold">Klik untuk unggah gambar QRIS</span>
+                          <span className="text-[10px] text-[#69809F]">PNG, JPG — Maks 5MB</span>
+                        </div>
+                      )}
+                    </label>
+                  )}
                 </div>
               )}
               <div>
@@ -2055,7 +2619,7 @@ export default function SettingsPage() {
       {/* Add WhatsApp Session Modal */}
       {showAddWaModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#0B1120] border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-2xl w-full max-w-md p-6 text-[#F1F5F9]">
+          <div className="bg-[#0B1120] border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-2xl w-full max-w-lg p-6 text-[#F1F5F9]">
             <div className="flex items-center justify-between pb-3 border-b border-[rgba(255,255,255,0.05)]">
               <h2 className="text-lg font-semibold text-[#F1F5F9]">Tambah Nomor WhatsApp</h2>
               <button type="button" onClick={() => setShowAddWaModal(false)} className="p-2 text-[#94A3B8] hover:text-white bg-[#1E293B] hover:bg-[#334155] rounded-full transition-colors">
@@ -2063,12 +2627,17 @@ export default function SettingsPage() {
               </button>
             </div>
             <p className="mt-4 text-xs text-[#93A8C7] leading-relaxed">
-              Sesi baru akan dibuat di WAHA. Scan QR Code yang muncul setelah ini untuk menghubungkan nomor Anda.
+              Sesi baru akan dibuat di WAHA. Masukkan nama sesi terlebih dahulu sebelum memunculkan QR Code agar mempermudah pelacakan (tracking).
             </p>
+            {waSessionError && (
+              <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-xs font-semibold leading-relaxed">
+                {waSessionError}
+              </div>
+            )}
             <div className="mt-5 space-y-4">
               <div>
                 <label className="text-xs uppercase font-bold tracking-wider text-[#69809F] block mb-2">
-                  Label Akun (opsional)
+                  Nama Sesi / Label Akun (Wajib)
                 </label>
                 <input
                   value={waLabelInput}
@@ -2102,7 +2671,7 @@ export default function SettingsPage() {
       {/* WhatsApp QR Code Modal */}
       {waQrModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#0B1120] border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-2xl w-full max-w-sm flex flex-col items-center gap-4 p-6 text-center text-[#F1F5F9]">
+          <div className="bg-[#0B1120] border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-2xl w-full max-w-lg flex flex-col items-center gap-4 p-6 text-center text-[#F1F5F9]">
             <div className="flex items-center justify-between w-full pb-2 border-b border-[rgba(255,255,255,0.05)]">
               <h2 className="text-lg font-semibold text-[#F1F5F9]">Scan QR Code</h2>
               <button type="button" onClick={() => setWaQrModal(null)} className="p-2 text-[#94A3B8] hover:text-white bg-[#1E293B] hover:bg-[#334155] rounded-full transition-colors">
@@ -2116,7 +2685,7 @@ export default function SettingsPage() {
             <div className="flex items-start gap-2.5 rounded-xl bg-[#4ADE80]/10 p-3 text-left border border-[#4ADE80]/20">
               <Check className="h-4 w-4 text-[#4ADE80] shrink-0 mt-0.5" />
               <p className="text-[11px] text-[#4ADE80] leading-relaxed">
-                Buka WhatsApp Anda ➔ Perangkat Tertaut ➔ Tautkan Perangkat ➔ Arahkan kamera ke QR Code di atas.
+                Buka WhatsApp Anda, pilih Perangkat Tertaut, lalu Tautkan Perangkat dan arahkan kamera ke QR Code di atas.
               </p>
             </div>
             <button
@@ -2133,6 +2702,43 @@ export default function SettingsPage() {
               className="w-full rounded-xl bg-[#3B82F6] hover:bg-[#2563EB] py-2.5 text-sm font-bold text-white transition-all shadow-[0_0_15px_rgba(59,130,246,0.2)]"
             >
               Sudah Scan, Refresh Status
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Test WhatsApp Connection Modal */}
+      {showWaTestModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#0B1120] border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-2xl w-full max-w-lg p-6 text-[#F1F5F9] space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[rgba(255,255,255,0.05)]">
+              <h2 className="text-lg font-semibold text-[#F1F5F9]">Tes Koneksi WhatsApp Bot</h2>
+              <button type="button" onClick={() => setShowWaTestModal(false)} className="p-2 text-[#94A3B8] hover:text-white bg-[#1E293B] hover:bg-[#334155] rounded-full transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-xs text-[#93A8C7] leading-relaxed">
+              Uji koneksi gateway WhatsApp {profile.waProvider?.toUpperCase()} sekaligus kirim pesan uji coba. Masukkan nomor WhatsApp penerima (gunakan format internasional, contoh: 628123456789).
+            </p>
+            <div className="space-y-2">
+              <label className="text-xs uppercase font-bold tracking-wider text-[#69809F] block">
+                Nomor WhatsApp Penerima
+              </label>
+              <input
+                value={waTestRecipient}
+                onChange={(e) => setWaTestRecipient(e.target.value)}
+                placeholder="Contoh: 628123456789"
+                className="w-full px-4 py-2.5 bg-[#0A0F1E] border border-[rgba(255,255,255,0.08)] rounded-xl text-sm text-[#F1F5F9] focus:outline-none focus:ring-1 focus:ring-[#3B82F6]"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleTestWaWithMessage}
+              disabled={testingWaConn}
+              className="w-full rounded-xl bg-[#3B82F6] hover:bg-[#2563EB] py-3 text-sm font-bold text-white transition-all shadow-[0_0_15px_rgba(59,130,246,0.2)] disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {testingWaConn ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
+              Kirim Pesan Tes & Uji Koneksi
             </button>
           </div>
         </div>

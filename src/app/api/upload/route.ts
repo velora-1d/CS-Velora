@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { v4 as uuidv4 } from "uuid";
 import { auth } from "@/auth";
+import { getEnvFallback } from "@/lib/env";
 
 // Max file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -27,13 +28,13 @@ export async function POST(req: Request) {
     }
 
     // Read environment variables for RustFS / S3-compatible storage
-    const endpoint = process.env.S3_ENDPOINT;
-    const accessKeyId = process.env.S3_ACCESS_KEY;
-    const secretAccessKey = process.env.S3_SECRET_KEY;
-    const bucket = process.env.S3_BUCKET;
-    const region = process.env.S3_REGION || "ap-southeast-1";
-    const publicUrl = process.env.S3_PUBLIC_URL;
-    const pathStyle = process.env.S3_PATH_STYLE !== "false"; // default true for RustFS/MinIO
+    const endpoint = getEnvFallback("S3_ENDPOINT");
+    const accessKeyId = getEnvFallback("S3_ACCESS_KEY");
+    const secretAccessKey = getEnvFallback("S3_SECRET_KEY");
+    const bucket = getEnvFallback("S3_BUCKET");
+    const region = getEnvFallback("S3_REGION") || "ap-southeast-1";
+    const publicUrl = getEnvFallback("S3_PUBLIC_URL");
+    const pathStyle = getEnvFallback("S3_PATH_STYLE") !== "false"; // default true for RustFS/MinIO
 
     if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
       console.error("[Upload] Missing RustFS/S3 environment variables");

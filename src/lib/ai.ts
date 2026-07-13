@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { products, faqs, promos, aiSettings, tenants, paymentMethods, orders, consultationSlots, clients, chatLogs, catalogItems } from "@/db/schema";
+import { products, faqs, promos, aiSettings, tenants, paymentMethods, orders, consultationSlots, clients, chatLogs, catalogItems, businessProfiles } from "@/db/schema";
 import { eq, and, asc, gte, desc } from "drizzle-orm";
 
 // In-memory cache untuk context bot per tenant (TTL 5 menit)
@@ -147,19 +147,27 @@ export async function getAiCompletion(
   overrides?: Partial<{ systemPrompt: string; namaAgent: string; model: string; tone: string }>,
   fromNumber?: string,
   fromName?: string,
-  imageUrl?: string
+  imageUrl?: string,
+  businessProfileId?: string
 ) {
   const settings = await db.query.aiSettings.findFirst({
     where: eq(aiSettings.tenantId, tenantId),
   });
 
+  let businessProfile = null;
+  if (businessProfileId) {
+    businessProfile = await db.query.businessProfiles.findFirst({
+      where: eq(businessProfiles.id, businessProfileId),
+    });
+  }
+
   const finalSettings = {
-    systemPrompt: overrides?.systemPrompt ?? settings?.systemPrompt ?? "You are a helpful assistant.",
-    namaAgent: overrides?.namaAgent ?? settings?.namaAgent ?? "Velora",
+    systemPrompt: overrides?.systemPrompt ?? businessProfile?.systemPrompt ?? settings?.systemPrompt ?? "You are a helpful assistant.",
+    namaAgent: overrides?.namaAgent ?? businessProfile?.name ?? settings?.namaAgent ?? "Velora",
     // Model HARUS dikonfigurasi dari dashboard, tidak ada fallback hardcoded
-    model: overrides?.model ?? settings?.model ?? "",
+    model: overrides?.model ?? businessProfile?.model ?? settings?.model ?? "",
     tone: overrides?.tone ?? settings?.tone ?? "semi-formal",
-    aktif: settings?.aktif ?? true,
+    aktif: businessProfile ? businessProfile.aiEnabled : (settings?.aktif ?? true),
     provider: settings?.provider || "openai",
     apiKey: settings?.apiKey,
     baseUrl: settings?.baseUrl,
@@ -223,24 +231,25 @@ ATURAN KOMUNIKASI:
 8. PENTING: Jika pengguna terdeteksi emosi, komplain kasar, ngotot, atau terang-terangan meminta bicara dengan admin, panggil fungsi \`escalate_to_human\` agar admin asli mengambil alih, dan berikan balasan penenang pendek seperti "Mohon maaf atas ketidaknyamanan Anda. Mohon ditunggu, tim CS kami akan segera masuk membantu Anda."
 `;
 
-  // Do NOT fallback to global environment keys anymore, only use tenant-specific credentials
   let apiKey = finalSettings.apiKey;
   let baseUrl = finalSettings.baseUrl;
+  let model = finalSettings.model;
+  let provider = finalSettings.provider;
 
-  if (!apiKey || apiKey === "••••••••••••") {
-    console.warn(`[AI] Tenant ${tenantId} has not configured their API Key. Skipping.`);
-    return null; // Silent skip — user must configure API Key in dashboard
+  if (!apiKey) {
+    console.warn(`[AI] Tenant ${tenantId} belum mengonfigurasi API Key di menu Pengaturan → Bot AI. Skipping.`);
+    return null;
   }
 
-  if (!finalSettings.model) {
-    console.warn(`[AI] Tenant ${tenantId} has not configured an AI Model. Skipping.`);
-    return null; // Silent skip — user must select a model in dashboard
+  if (!model) {
+    console.warn(`[AI] Tenant ${tenantId} has not configured an AI Model and no fallback is available. Skipping.`);
+    return null;
   }
   
   if (!baseUrl) {
-    if (finalSettings.provider === "openai") {
+    if (provider === "openai") {
       baseUrl = "https://api.openai.com/v1";
-    } else if (finalSettings.provider === "anthropic") {
+    } else if (provider === "anthropic") {
       baseUrl = "https://api.anthropic.com/v1";
     } else {
       console.warn(`[AI] Tenant ${tenantId} selected custom provider but did not specify Base URL.`);
@@ -248,11 +257,11 @@ ATURAN KOMUNIKASI:
     }
   }
 
-  const isAnthropicStyle = finalSettings.provider === "anthropic" || finalSettings.provider === "anthropic_compatible";
+  const isAnthropicStyle = provider === "anthropic" || provider === "anthropic_compatible";
   let apiEndpoint = "";
 
   if (isAnthropicStyle) {
-    if (finalSettings.provider === "anthropic") {
+    if (provider === "anthropic") {
       apiEndpoint = "https://api.anthropic.com/v1/messages";
     } else {
       const base = baseUrl.replace(/\/$/, "");

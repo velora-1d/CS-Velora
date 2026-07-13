@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
@@ -21,6 +22,13 @@ import {
   Sparkles,
   Save,
   X,
+  ShoppingBag,
+  Stethoscope,
+  Plane,
+  Building2,
+  GraduationCap,
+  Package,
+  Tag,
 } from "lucide-react";
 
 import { ConfirmModal } from "@/components/ui/confirm-modal";
@@ -465,14 +473,15 @@ export default function CatalogFieldsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pt-2">
             {tenantTypes.map((t) => {
               const isSelected = profile.tenantTypeId === t.id;
-              const iconMap: Record<string, string> = {
-                "Bisnis Umum": "👜",
-                "Klinik": "🩺",
-                "Travel": "✈️",
-                "Properti": "🏢",
-                "Pendidikan": "🎓"
-              };
-              const emoji = iconMap[t.name] || "📦";
+                  const iconMap: Record<string, React.ReactNode> = {
+                    "Bisnis Umum": <ShoppingBag className="w-5 h-5" />,
+                    "Klinik": <Stethoscope className="w-5 h-5" />,
+                    "Travel": <Plane className="w-5 h-5" />,
+                    "Properti": <Building2 className="w-5 h-5" />,
+                    "Pendidikan": <GraduationCap className="w-5 h-5" />,
+                  };
+                  const iconNode = iconMap[t.name] || <Package className="w-5 h-5" />;
+                  const isCustom = !!t.tenantId; // template kustom milik user
 
               return (
                 <div
@@ -484,14 +493,26 @@ export default function CatalogFieldsPage() {
                       : "bg-[rgba(255,255,255,0.02)] border-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.1)]"
                   } ${isUpdatingTemplate ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
-                  {isSelected && (
-                    <div className="absolute top-3 right-3 flex h-5 w-5 items-center justify-center rounded-full bg-[#3B82F6] text-white shrink-0">
-                      <Check className="w-3 h-3" />
-                    </div>
-                  )}
+                  {/* Badge AKTIF dan Kustom */}
+                  <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                    {isCustom && (
+                      <span className="text-[8px] font-bold uppercase bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/30 px-1.5 py-0.5 rounded">
+                        Kustom
+                      </span>
+                    )}
+                    {isSelected && (
+                      <span className="text-[8px] font-bold uppercase bg-[#3B82F6] text-white px-2 py-0.5 rounded flex items-center gap-1">
+                        <Check className="w-2.5 h-2.5" /> Aktif
+                      </span>
+                    )}
+                  </div>
 
                   <div className="flex items-center gap-3 mb-4">
-                    <span className="text-2xl shrink-0">{emoji}</span>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      isSelected ? "bg-[#3B82F6]/20 text-[#3B82F6]" : "bg-white/5 text-[#69809F]"
+                    }`}>
+                      {iconNode}
+                    </div>
                     <div>
                       <h4 className="font-bold text-white text-sm leading-none">{t.name}</h4>
                       <span className="text-[9px] text-[#56D6FF] uppercase tracking-wider font-bold block mt-1">
@@ -701,7 +722,7 @@ export default function CatalogFieldsPage() {
         <div className="absolute inset-0 bg-[rgba(2,8,15,0.78)] backdrop-blur-sm" onClick={handleCloseDrawer} />
 
         <div
-          className={`drawer-shell absolute right-0 top-0 h-full w-full max-w-md border-l border-[rgba(138,180,248,0.12)] transition-transform duration-300 ${
+          className={`drawer-shell absolute right-0 top-0 h-full w-full max-w-lg border-l border-[rgba(138,180,248,0.12)] transition-transform duration-300 ${
             showDrawer ? "translate-x-0" : "translate-x-full"
           }`}
         >
@@ -721,7 +742,7 @@ export default function CatalogFieldsPage() {
                   onClick={handleCloseDrawer}
                   className="flex h-10 w-10 items-center justify-center rounded-xl border border-[rgba(138,180,248,0.12)] text-[#93A8C7] hover:bg-[rgba(255,255,255,0.05)]"
                 >
-                  ✕
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -896,7 +917,7 @@ function CustomTemplateModal({
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
       <div
-        className="relative z-10 w-full max-w-md p-6 space-y-6"
+        className="relative z-10 w-full max-w-lg p-6 space-y-6"
         style={{
           background: "linear-gradient(160deg, #0D1526 0%, #0A0F1E 100%)",
           border: "1px solid rgba(255,255,255,0.08)",

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { subscriptions, tenants } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 
 export async function POST(req: Request) {
@@ -14,12 +14,22 @@ export async function POST(req: Request) {
 
     const { paket } = await req.json();
 
-    if (!paket || !["basic", "pro"].includes(paket)) {
-      return NextResponse.json({ error: "Paket tidak valid" }, { status: 400 });
+    if (!paket) {
+      return NextResponse.json({ error: "Paket wajib dipilih" }, { status: 400 });
+    }
+
+    // Ambil info paket dari database secara dinamis
+    const pkgResult = await db.execute(
+      sql`SELECT * FROM packages WHERE key = ${paket} AND is_active = true LIMIT 1`
+    );
+    const pkg = pkgResult.rows[0];
+
+    if (!pkg) {
+      return NextResponse.json({ error: "Paket tidak valid atau tidak aktif" }, { status: 400 });
     }
 
     // Hitung nominal tagihan
-    const amount = paket === "basic" ? 35000 : 99000;
+    const amount = Number(pkg.harga);
 
     const startDate = new Date();
     const endDate = new Date();

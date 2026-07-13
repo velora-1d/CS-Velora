@@ -19,6 +19,7 @@ import {
   X,
   Save,
   Sparkles,
+  Tag,
 } from "lucide-react";
 
 import { ConfirmModal } from "@/components/ui/confirm-modal";
@@ -88,6 +89,8 @@ export default function CatalogItemsPage() {
   const [tenantTypes, setTenantTypes] = useState<TenantType[]>([]);
   const [tenantTypeId, setTenantTypeId] = useState("");
   const [savingType, setSavingType] = useState(false);
+  const [businessProfiles, setBusinessProfiles] = useState<any[]>([]);
+  const [waSessions, setWaSessions] = useState<any[]>([]);
 
   // Custom Template states
   const [showTemplateModal, setShowTemplateModal] = useState(false);
@@ -133,6 +136,8 @@ export default function CatalogItemsPage() {
     fetchProfile();
     fetchFields();
     fetchTenantTypes();
+    fetchBusinessProfiles();
+    fetchWaSessions();
   }, []);
 
   // Fetch catalog items when search, filters, or page changes
@@ -151,6 +156,30 @@ export default function CatalogItemsPage() {
       }
     } catch {
       console.error("Gagal memuat profil tenant");
+    }
+  };
+
+  const fetchBusinessProfiles = async () => {
+    try {
+      const res = await fetch("/api/business-profiles");
+      if (res.ok) {
+        const data = await res.json();
+        setBusinessProfiles(data);
+      }
+    } catch (error) {
+      console.error("Gagal memuat profil bisnis:", error);
+    }
+  };
+
+  const fetchWaSessions = async () => {
+    try {
+      const res = await fetch("/api/whatsapp/sessions");
+      if (res.ok) {
+        const data = await res.json();
+        setWaSessions(data);
+      }
+    } catch (error) {
+      console.error("Gagal memuat sesi WA:", error);
     }
   };
 
@@ -546,8 +575,91 @@ export default function CatalogItemsPage() {
         </div>
       </div>
 
+      {/* Active Business Types Banner */}
+      {businessProfiles.length > 0 && (
+        <div className="glass-card px-6 py-5 space-y-4 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-[#4ADE80]/10 border border-[#4ADE80]/20 flex items-center justify-center">
+                <Boxes className="w-4 h-4 text-[#4ADE80]" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-[#4ADE80] uppercase tracking-wider">Profil Bisnis & Kategori Aktif</p>
+                <p className="text-[10px] text-[#64748B] mt-0.5">Profil bisnis yang menentukan behavior chatbot AI per nomor WhatsApp</p>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold text-[#64748B] bg-white/5 px-2 py-1 rounded-lg">
+              {businessProfiles.length} Profil
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {businessProfiles.map((p, idx) => {
+              const categoryType = tenantTypes.find(t => t.id === p.tenantTypeId);
+              const linkedWas = waSessions.filter(s => s.businessProfileId === p.id);
+              const isLinked = linkedWas.some(s => s.waNumber);
+              // Warna berganti-ganti per profil
+              const colors = [
+                { bg: "bg-[#3B82F6]/10", border: "border-[#3B82F6]/20", text: "text-[#3B82F6]", dot: "bg-[#3B82F6]" },
+                { bg: "bg-[#8B5CF6]/10", border: "border-[#8B5CF6]/20", text: "text-[#8B5CF6]", dot: "bg-[#8B5CF6]" },
+                { bg: "bg-[#F59E0B]/10", border: "border-[#F59E0B]/20", text: "text-[#F59E0B]", dot: "bg-[#F59E0B]" },
+                { bg: "bg-[#10B981]/10", border: "border-[#10B981]/20", text: "text-[#10B981]", dot: "bg-[#10B981]" },
+                { bg: "bg-[#EF4444]/10", border: "border-[#EF4444]/20", text: "text-[#EF4444]", dot: "bg-[#EF4444]" },
+              ];
+              const color = colors[idx % colors.length];
+
+              return (
+                <div key={p.id} className={`rounded-xl border ${color.border} ${color.bg} p-3 space-y-2`}>
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${isLinked ? "bg-[#4ADE80]" : "bg-[#64748B]"}`} />
+                      <span className="font-bold text-sm text-white truncate">{p.name}</span>
+                    </div>
+                    <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0 ${p.aiEnabled ? "bg-[#10B981]/20 text-[#10B981]" : "bg-[#EF4444]/20 text-[#EF4444]"}`}>
+                      AI {p.aiEnabled ? "ON" : "OFF"}
+                    </span>
+                  </div>
+
+                  {/* Kategori Bisnis */}
+                  <div className="flex items-center gap-1.5">
+                    <Tag className="w-3 h-3 text-[#69809F] shrink-0" />
+                    {categoryType ? (
+                      <span className={`text-xs font-semibold ${color.text}`}>{categoryType.name}</span>
+                    ) : (
+                      <span className="text-xs text-[#64748B] italic">Belum dipilih kategori</span>
+                    )}
+                  </div>
+
+                  {/* Model AI */}
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-3 h-3 text-[#69809F] shrink-0" />
+                    <span className="text-[10px] text-[#94A3B8] font-mono truncate">{p.model || "Belum dikonfigurasi"}</span>
+                  </div>
+
+                  {/* Nomor WA Terhubung */}
+                  <div className="pt-1 border-t border-white/5">
+                    {isLinked ? (
+                      <div className="flex flex-wrap gap-1">
+                        {linkedWas.filter(s => s.waNumber).map(s => (
+                          <span key={s.id} className="text-[9px] bg-[#4ADE80]/10 text-[#4ADE80] border border-[#4ADE80]/20 px-1.5 py-0.5 rounded font-mono">
+                            {s.waNumber}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-[#64748B] italic">Belum terhubung ke nomor WA</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Filter and Configuration Row */}
-      <div className="glass-card p-5 md:p-6">
+      <div className="glass-card !overflow-visible relative z-20 p-5 md:p-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.18em] text-[#56D6FF]">
@@ -826,7 +938,7 @@ export default function CatalogItemsPage() {
                   onClick={handleCloseDrawer}
                   className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[rgba(138,180,248,0.12)] text-[#93A8C7] hover:bg-[rgba(255,255,255,0.05)]"
                 >
-                  ✕
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -1128,7 +1240,7 @@ export function CustomTemplateModal({
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
       <div
-        className="relative z-10 w-full max-w-md p-6 space-y-6"
+        className="relative z-10 w-full max-w-lg p-6 space-y-6"
         style={{
           background: "linear-gradient(160deg, #0D1526 0%, #0A0F1E 100%)",
           border: "1px solid rgba(255,255,255,0.08)",

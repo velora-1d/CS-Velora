@@ -46,7 +46,7 @@ export function CustomDropdown({
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex w-full items-center justify-between border rounded-[18px] bg-slate-950/70 border-white/10 text-[#F1F5F9] px-4 py-3.5 text-left text-xs transition-all focus:outline-none focus:border-[#56D6FF]/50 focus:ring-4 focus:ring-[#56D6FF]/12 disabled:cursor-not-allowed disabled:opacity-50 ${
+        className={`flex w-full items-center justify-between border rounded-[18px] bg-slate-950/70 border-white/10 text-[#F1F5F9] px-4 h-[2.75rem] text-left text-sm transition-all focus:outline-none focus:border-[#56D6FF]/50 focus:ring-4 focus:ring-[#56D6FF]/12 disabled:cursor-not-allowed disabled:opacity-50 ${
           isOpen ? "border-[#56D6FF]/50 ring-4 ring-[#56D6FF]/12" : ""
         }`}
       >

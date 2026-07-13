@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { subscriptions, tenants } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 // POST /api/owner/billing/[id]/approve
 export async function POST(
@@ -30,8 +30,21 @@ export async function POST(
     return NextResponse.json({ error: "Tagihan sudah diproses sebelumnya" }, { status: 400 });
   }
 
-  // Tentukan maxWaAccounts berdasarkan paket
-  const maxWaAccounts = sub.paket === "pro" ? 3 : 1;
+  // Tentukan maxWaAccounts secara dinamis berdasarkan paket di DB
+  let maxWaAccounts = 1;
+  try {
+    const pkgResult = await db.execute(
+      sql`SELECT max_wa_accounts FROM packages WHERE key = ${sub.paket} LIMIT 1`
+    );
+    if (pkgResult.rows.length > 0) {
+      maxWaAccounts = Number(pkgResult.rows[0].max_wa_accounts || 1);
+    } else {
+      maxWaAccounts = sub.paket === "pro" ? 3 : 1;
+    }
+  } catch (err) {
+    console.error("Failed to fetch package details, using fallback:", err);
+    maxWaAccounts = sub.paket === "pro" ? 3 : 1;
+  }
 
   // Update subscription → active
   await db

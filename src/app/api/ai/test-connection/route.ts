@@ -15,8 +15,8 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     let { provider, apiKey, baseUrl } = body;
 
-    // Load saved settings if apiKey is masked
-    if (!apiKey || apiKey === "••••••••••••") {
+    // Load saved settings if apiKey is masked or undefined
+    if (apiKey === undefined || apiKey === "••••••••••••") {
       const saved = await db.query.aiSettings.findFirst({
         where: eq(aiSettings.tenantId, tenantId),
       });

@@ -128,6 +128,20 @@ export const catalogItems = pgTable("catalog_items", {
   index("idx_catalog_items_tenant_created").on(table.tenantId, table.createdAt),
 ]);
 
+// Business Profiles table (Multiple businesses support per tenant)
+export const businessProfiles = pgTable("business_profiles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+  tenantTypeId: uuid("tenant_type_id").references(() => tenantTypes.id), // Jenis Bisnis / Template
+  name: varchar("name", { length: 150 }).notNull(), // Nama Brand/Bisnis
+  greeting: text("greeting").notNull(),
+  pesanOffline: text("pesan_offline").notNull(),
+  aiEnabled: boolean("ai_enabled").notNull().default(true),
+  systemPrompt: text("system_prompt").notNull(),
+  model: varchar("model", { length: 100 }).notNull().default("qwen-vl-plus"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // WA Sessions table (Multi-WA support)
 export const waSessions = pgTable("wa_sessions", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -136,6 +150,7 @@ export const waSessions = pgTable("wa_sessions", {
   waNumber: varchar("wa_number", { length: 30 }).notNull(),
   label: varchar("label", { length: 100 }),
   status: varchar("status", { length: 50 }).notNull().default("disconnected"),
+  businessProfileId: uuid("business_profile_id").references(() => businessProfiles.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -425,6 +440,8 @@ export type Client = typeof clients.$inferSelect;
 export type NewClient = typeof clients.$inferInsert;
 export type OwnerPaymentInfo = typeof ownerPaymentInfo.$inferSelect;
 export type NewOwnerPaymentInfo = typeof ownerPaymentInfo.$inferInsert;
+export type BusinessProfile = typeof businessProfiles.$inferSelect;
+export type NewBusinessProfile = typeof businessProfiles.$inferInsert;
 
 // Relations
 export const tenantTypesRelations = relations(tenantTypes, ({ many }) => ({

@@ -60,7 +60,7 @@ export async function POST(req: Request) {
       where: eq(aiSettings.tenantId, tenantId),
     });
 
-    const apiKey = body.apiKey && body.apiKey !== MASKED_API_KEY
+    const apiKey = body.apiKey !== undefined && body.apiKey !== MASKED_API_KEY
       ? body.apiKey
       : saved?.apiKey;
 
